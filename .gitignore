@@ -1,0 +1,34 @@
+node_modules
+# config
+
+creator.js
+
+# Environment / secrets (never commit these)
+config/config.env
+config/*.local.env
+.env
+.env.*
+!.env.example
+!config/config.example.env
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Vercel
+.vercel
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS files
+.DS_Store
+Thumbs.db
