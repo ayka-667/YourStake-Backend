@@ -1,0 +1,22 @@
+# YourStake backend - docker compose
+#
+#   docker compose up -d --build
+#   docker compose logs -f
+#
+# config/config.env must exist (copy config.example.env and fill it in).
+# The port is bound to 127.0.0.1 so only nginx can reach it.
+
+services:
+  backend:
+    build: .
+    container_name: yourstake-backend
+    restart: unless-stopped
+    env_file:
+      - config/config.env
+    environment:
+      NODE_ENV: production
+      SERVER_PORT: 5001
+      SERVER_HOST: 0.0.0.0
+    ports:
+      - "127.0.0.1:5001:5001"
+    stop_grace_period: 15s

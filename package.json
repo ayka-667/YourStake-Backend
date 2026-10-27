@@ -5,7 +5,7 @@
   "description": "YourStake backend (Express + MongoDB + Socket.IO) with Vercel serverless entry point",
   "main": "index.js",
   "engines": {
-    "node": "20.x"
+    "node": ">=18"
   },
   "scripts": {
     "start": "node index",

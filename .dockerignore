@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log*
+.git
+.gitignore
+.vercel
+.vercelignore
+.DS_Store
+.env
+.env.*
+config/config.env
+config/*.local.env
+README.md

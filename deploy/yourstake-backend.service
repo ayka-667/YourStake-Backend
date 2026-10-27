@@ -1,0 +1,32 @@
+[Unit]
+Description=YourStake Backend (Express + Socket.IO)
+After=network.target mongod.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=yourstake
+Group=yourstake
+WorkingDirectory=/var/www/yourstake-backend
+
+Environment=NODE_ENV=production
+Environment=SERVER_PORT=5001
+Environment=SERVER_HOST=127.0.0.1
+
+ExecStart=/usr/bin/node index.js
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+# Logs: journalctl -u yourstake-backend -f
+StandardOutput=journal
+StandardError=journal
+
+# Basic hardening
+NoNewPrivileges=true
+PrivateTmp=true
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

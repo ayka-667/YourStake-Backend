@@ -1,13 +1,16 @@
 /**
  * Puppeteer configuration.
  *
- * Chromium is only needed by the credit cashier (scraping a trade URL), which
- * cannot run on Vercel anyway. Skipping the ~170 MB download during a Vercel
- * build keeps deployments fast; it is still downloaded for local development.
+ * Chromium is only used by the credit cashier (scraping a trade URL), which is
+ * a heavy optional feature. Downloading the ~170 MB browser on every panel
+ * install is slow and often fails on constrained hosts, so it is skipped by
+ * default.
+ *
+ * If you really need it, start the server with PUPPETEER_DOWNLOAD=1, or point
+ * CHROME_PATH to an existing Chrome/Chromium binary.
  *
  * @see https://pptr.dev/guides/configuration
  */
 module.exports = {
-  skipDownload:
-    process.env.VERCEL === "1" || process.env.PUPPETEER_SKIP_DOWNLOAD === "1",
+  skipDownload: process.env.PUPPETEER_DOWNLOAD !== "1",
 };
