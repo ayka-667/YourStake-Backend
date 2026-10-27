@@ -5,6 +5,8 @@
  * controller functions as real players, so their bets, cashouts and wins are real
  * database entries and show up everywhere (crash/roll lists, live bets feed, leaderboard).
  *
+ * Games: crash, roll, mines, towers, dice duels, case battles and blackjack.
+ *
  * Config (config/config.env):
  *   BOTS_ENABLED=true   BOTS_COUNT=100   BOTS_WHALES=5
  */
@@ -21,6 +23,16 @@ const { minesSendBetSocket, minesSendRevealSocket, minesSendCashoutSocket } = re
 const { towersSendBetSocket, towersSendRevealSocket, towersSendCashoutSocket } = require('../controllers/towers');
 const { duelsGetData, duelsSendCreateSocket, duelsSendJoinSocket } = require('../controllers/duels');
 const { battlesGetData, battlesSendCreateSocket, battlesSendJoinSocket } = require('../controllers/battles');
+const {
+    blackjackGetTablesRaw,
+    blackjackSendJoinSocket,
+    blackjackSendBetSocket,
+    blackjackSendInsuranceSocket,
+    blackjackSendHitSocket,
+    blackjackSendStandSocket,
+    blackjackSendDoubleSocket
+} = require('../controllers/blackjack');
+const { blackjackGetCardsValue } = require('../utils/blackjack');
 const Box = require('../database/models/Box');
 const { generalChatAddMessage } = require('../controllers/general/chat');
 const { generalUserGetLevel, generalUserGetRakeback } = require('../utils/general/user');
@@ -617,6 +629,219 @@ const botsBattlesWatchTick = async () => {
     }
 };
 
+// ---------- blackjack ----------
+
+const BLACKJACK_SEATS = 5;
+const BLACKJACK_WINDOW = 1000 * 10;
+
+let blackjackBusy = false;
+let blackjackWaits = new Map();
+
+const blackjackPlayerUserId = (player) => {
+    if(player === undefined || player === null || player.user === undefined || player.user === null || player.user._id === undefined) { return null; }
+    return player.user._id.toString();
+};
+
+const blackjackFreeSeats = (table) => {
+    return [...Array(BLACKJACK_SEATS).keys()].filter((seat) => table.players.some((player) => player.seat === seat) !== true);
+};
+
+const blackjackTimeLeft = (table) => {
+    return new Date(table.game.updatedAt).getTime() + BLACKJACK_WINDOW - new Date().getTime();
+};
+
+// Small random delay before acting, so bots do not answer in the same tick as the deal
+const blackjackWait = (key, min, max) => {
+    const now = new Date().getTime();
+    const until = blackjackWaits.get(key);
+
+    if(until === undefined) { blackjackWaits.set(key, now + Math.round(rand(min, max))); return false; }
+    if(now < until) { return false; }
+
+    blackjackWaits.delete(key);
+    return true;
+};
+
+// A bot keeps (or drops) its seat for the whole round instead of flip-flopping between ticks
+const blackjackWillBet = (table, seat) => {
+    const text = `${table.game._id}:${seat}`;
+    let hash = 0;
+
+    for(let index = 0; index < text.length; index++) { hash = (hash * 31 + text.charCodeAt(index)) % 1000; }
+
+    return hash < 780;
+};
+
+const blackjackLimits = (type) => {
+    const standard = type !== 'whale';
+    const min = Number(standard ? process.env.BLACKJACK_MIN_AMOUNT_STANDARD : process.env.BLACKJACK_MIN_AMOUNT_WHALE) || (standard ? 0.01 : 10);
+    const max = Number(standard ? process.env.BLACKJACK_MAX_AMOUNT_STANDARD : process.env.BLACKJACK_MAX_AMOUNT_WHALE) || (standard ? 1000 : 100000);
+
+    return { min: Math.floor(min * COIN), max: Math.floor(max * COIN) };
+};
+
+const blackjackBetAmount = (bot, type) => {
+    const limits = blackjackLimits(type);
+    const amount = type === 'whale' ? botWhaleAmount() : (bot.whale ? botSmallAmount() * 10 : botSmallAmount());
+
+    return Math.max(limits.min, Math.min(limits.max, Math.round(amount)));
+};
+
+const botsBlackjackBets = async (table, botById) => {
+    for(const player of table.players) {
+        const botId = blackjackPlayerUserId(player);
+        if(botId === null || botById.has(botId) !== true) { continue; }
+        if(player.bet !== null && player.bet !== undefined) { continue; }
+        if(blackjackWillBet(table, player.seat) !== true) { continue; }
+        if(blackjackWait(`bet:${table.game._id}:${player.seat}`, 800, 3200) !== true) { continue; }
+
+        const bot = botById.get(botId);
+        const amount = blackjackBetAmount(bot, table.game.type);
+        await botEnsureBalance(bot, amount);
+
+        const res = await botCall(blackjackSendBetSocket, bot, {
+            table: table.table,
+            bets: [{ seat: player.seat, amount: { main: amount, sideLeft: 0, sideRight: 0 } }]
+        });
+
+        if(res.success !== true && process.env.BOTS_DEBUG) { console.log('[bots] blackjack bet', bot.username, res.error && res.error.message); }
+    }
+};
+
+const botsBlackjackInsurance = async (table, botById) => {
+    for(const player of table.players) {
+        const botId = blackjackPlayerUserId(player);
+        if(botId === null || botById.has(botId) !== true) { continue; }
+        if(player.bet === undefined || player.bet === null) { continue; }
+        if(player.bet.actions === undefined || player.bet.actions.length !== 1) { continue; }
+        if(blackjackWait(`insurance:${table.game._id}:${player.seat}`, 800, 3000) !== true) { continue; }
+
+        const bot = botById.get(botId);
+        await botEnsureBalance(bot, Math.floor(player.bet.amount.main / 2));
+        await botCall(blackjackSendInsuranceSocket, bot, { table: table.table, insurance: chance(0.25) });
+    }
+};
+
+const botsBlackjackTurn = async (table, botById) => {
+    const player = table.players.find((element) => element.seat === table.playersPos);
+    if(player === undefined) { return; }
+
+    const botId = blackjackPlayerUserId(player);
+    if(botId === null || botById.has(botId) !== true) { return; }
+    if(player.bet === undefined || player.bet === null || Array.isArray(player.bet.cards) !== true) { return; }
+    if(player.bet.cards.length === 0) { return; }
+
+    const cards = player.bet.cards;
+    const actions = player.bet.actions === undefined ? [] : player.bet.actions;
+    if(blackjackWait(`turn:${table.game._id}:${player.seat}:${cards.length}:${actions.length}`, 700, 2400) !== true) { return; }
+
+    const bot = botById.get(botId);
+    const value = blackjackGetCardsValue(cards);
+    const data = { table: table.table, seat: player.seat };
+    let res = null;
+
+    if(cards.length === 2 && value >= 9 && value <= 11 && chance(0.25) === true) {
+        await botEnsureBalance(bot, player.bet.amount.main);
+        res = await botCall(blackjackSendDoubleSocket, bot, data);
+    } else if(value <= 16) {
+        res = await botCall(blackjackSendHitSocket, bot, data);
+    } else {
+        res = await botCall(blackjackSendStandSocket, bot, data);
+    }
+
+    if(res !== null && res.success !== true && process.env.BOTS_DEBUG) { console.log('[bots] blackjack action', bot.username, res.error && res.error.message); }
+};
+
+const botsBlackjackTick = async () => {
+    if(blackjackBusy === true || bots.length === 0) { return; }
+
+    blackjackBusy = true;
+
+    try {
+        const botById = new Map(bots.map((bot) => [bot._id.toString(), bot]));
+
+        for(const table of blackjackGetTablesRaw()) {
+            if(table.game === undefined || table.game === null) { continue; }
+
+            const state = table.game.state;
+
+            if(state === 'running') {
+                if(table.playersPos === 'all') { await botsBlackjackInsurance(table, botById); }
+                else if(table.playersPos !== null && table.playersPos !== undefined) { await botsBlackjackTurn(table, botById); }
+            } else if(state === 'countdown' && blackjackTimeLeft(table) > 1500) {
+                await botsBlackjackBets(table, botById);
+            }
+        }
+
+        if(blackjackWaits.size > 5000) { blackjackWaits = new Map(); }
+    } catch(err) {
+        console.error('[bots] blackjack', err.message);
+    } finally {
+        blackjackBusy = false;
+    }
+};
+
+const botsBlackjackSeatsLoop = async () => {
+    while(true) {
+        await sleep(rand(6000, 15000));
+
+        try {
+            if(bots.length === 0) { continue; }
+
+            const botById = new Map(bots.map((bot) => [bot._id.toString(), bot]));
+            const tables = blackjackGetTablesRaw();
+
+            // Do not let the bots fill the whole lobby: a dozen active tables is plenty
+            const busyTables = tables.filter((table) => table.players.some((player) => {
+                const id = blackjackPlayerUserId(player);
+                return id !== null && botById.has(id);
+            })).length;
+
+            // Only tables that can still take a seat before the cards are dealt
+            const available = tables.filter((table) => {
+                if(table.game === undefined || table.game === null) { return false; }
+                if(table.game.state !== 'created' && table.game.state !== 'countdown') { return false; }
+                if(table.game.state === 'countdown' && blackjackTimeLeft(table) < 6000) { return false; }
+                return blackjackFreeSeats(table).length > 0;
+            });
+
+            if(available.length === 0) { continue; }
+
+            // Prefer a table where a real player is already waiting, so the site never feels empty
+            const withHuman = available.filter((table) => table.players.some((player) => {
+                const id = blackjackPlayerUserId(player);
+                return id !== null && botById.has(id) !== true;
+            }));
+            const empty = available.filter((table) => table.players.length === 0);
+
+            let table = null;
+            if(withHuman.length > 0 && chance(0.6) === true) { table = pick(withHuman); }
+            else if(empty.length > 0 && busyTables < 12) { table = pick(empty); }
+            else if(withHuman.length > 0) { table = pick(withHuman); }
+
+            if(table === null) { continue; }
+
+            const whaleTable = table.game.type === 'whale';
+            const seated = new Set(table.players.map(blackjackPlayerUserId).filter((id) => id !== null));
+            const candidates = botsOnline().filter((bot) => bot.whale === whaleTable && seated.has(bot._id.toString()) !== true);
+
+            if(candidates.length === 0) { continue; }
+
+            const seats = blackjackFreeSeats(table).sort(() => Math.random() - 0.5).slice(0, table.players.length === 0 ? randInt(1, 3) : randInt(1, 2));
+            const pool = [...candidates].sort(() => Math.random() - 0.5);
+
+            for(let index = 0; index < seats.length && index < pool.length; index++) {
+                const bot = pool[index];
+                const res = await botCall(blackjackSendJoinSocket, bot, { table: table.table, seat: seats[index] });
+
+                if(res.success !== true && process.env.BOTS_DEBUG) { console.log('[bots] blackjack seat', bot.username, res.error && res.error.message); }
+            }
+        } catch(err) {
+            console.error('[bots] blackjack seats', err.message);
+        }
+    }
+};
+
 // ---------- entry point ----------
 
 module.exports = (io) => {
@@ -638,8 +863,10 @@ module.exports = (io) => {
             botsSoloLoop();
             botsDuelsLoop();
             botsBattlesLoop();
+            botsBlackjackSeatsLoop();
             setInterval(botsBattlesWatchTick, 4000);
             setInterval(botsDuelsWatchTick, 3000);
+            setInterval(botsBlackjackTick, 1000);
             console.log(`[bots] ${bots.length} fake players running (${whales} high rollers)`);
         } catch(err) {
             console.error('[bots] failed to start:', err.message);

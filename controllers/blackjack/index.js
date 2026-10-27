@@ -74,6 +74,11 @@ const blackjackGetData = () => {
     return { tables: blackjackTableListSanitize(blackjackTables) };
 }
 
+// Raw blackjack tables, only used by the fake players (never sent to clients)
+const blackjackGetTablesRaw = () => {
+    return blackjackTables;
+}
+
 const blackjackSendJoinSocket = async(io, socket, user, data, callback) => {
     try {
         // Validate sent data
@@ -668,7 +673,10 @@ const blackjackGameFairness = async(io, blackjackTable) => {
         blackjackGameStart(io, blackjackTables[blackjackIndexTable]);
     } catch(err) {
         console.error(err);
-        setTimeout(() => { duelsGameValidate(io, duelsGame); }, 1000 * 15);
+
+        // The public seed provider may be unreachable for a moment: retry instead of
+        // leaving the table stuck (and never crash the whole server on a bad reference)
+        setTimeout(() => { blackjackGameFairness(io, blackjackTable); }, 1000 * 5);
     }
 }
 
@@ -1080,5 +1088,6 @@ module.exports = {
     blackjackSendSplitSocket,
     blackjackSendDoubleSocket,
     blackjackGetData,
+    blackjackGetTablesRaw,
     blackjackInit
 }
