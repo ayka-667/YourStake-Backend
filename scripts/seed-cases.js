@@ -4,7 +4,6 @@ require('dotenv').config({ path: __dirname + '/../config/config.env' });
 const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
-const puppeteer = require('puppeteer-core');
 
 const Box = require('../database/models/Box');
 const LimitedItem = require('../database/models/LimitedItem');
@@ -107,15 +106,33 @@ const slugify = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace
         items[name] = item;
     }
 
-    // Case images rendered to PNG (the frontend loads /public/img/<slug>.png from the backend)
-    const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new' });
-    const page = await browser.newPage();
-    await page.setViewport({ width: 400, height: 400 });
+    // Case images: the frontend loads /public/img/<slug>.png from the backend.
+    // The repository already ships these PNGs, so Chrome is only needed when a
+    // picture is missing (new/renamed case). On a Pterodactyl container without
+    // Chrome, the existing images are simply reused.
+    let browser = null;
+    let page = null;
+
+    const getPage = async () => {
+        if(page !== null) { return page; }
+
+        const puppeteer = require('puppeteer-core');
+        browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new' });
+        page = await browser.newPage();
+        await page.setViewport({ width: 400, height: 400 });
+
+        return page;
+    };
 
     for(const [name, categories, colors, content] of CASES) {
         const slug = slugify(name);
-        await page.setContent(`<html><body style="margin:0;background:transparent">${caseSvg(name, colors)}</body></html>`);
-        await page.screenshot({ path: path.join(__dirname, '..', 'public', 'img', slug + '.png'), omitBackground: true, clip: { x: 0, y: 0, width: 400, height: 400 } });
+        const imagePath = path.join(__dirname, '..', 'public', 'img', slug + '.png');
+
+        if(fs.existsSync(imagePath) !== true) {
+            const imagePage = await getPage();
+            await imagePage.setContent(`<html><body style="margin:0;background:transparent">${caseSvg(name, colors)}</body></html>`);
+            await imagePage.screenshot({ path: imagePath, omitBackground: true, clip: { x: 0, y: 0, width: 400, height: 400 } });
+        }
 
         // Weights -> tickets out of 100,000
         const totalWeight = content.reduce((sum, [, weight]) => sum + weight, 0);
@@ -136,6 +153,7 @@ const slugify = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace
         console.log(`${name.padEnd(14)} price ${(amount / COIN).toFixed(2)}`);
     }
 
-    await browser.close();
+    if(browser !== null) { await browser.close(); }
+
     await mongoose.disconnect();
 })().catch((err) => { console.error(err); process.exit(1); });
