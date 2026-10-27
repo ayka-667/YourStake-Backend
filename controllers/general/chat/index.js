@@ -45,6 +45,9 @@ let generalChatFilter = [];
 
 const generalGetChatMessagesSocket = async(io, socket, user, data, callback) => {
     try {
+        // Single chat room: language rooms were removed
+        data = { ...data, room: 'en' };
+
         // Validate sent data
         generalCheckGetChatMessagesData(data);
 
