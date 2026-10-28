@@ -29,8 +29,6 @@ const generalCheckSendAffiliateClaimCodeUser = (user, addressDatabase) => {
         throw new Error('Something went wrong. Please try again in a few seconds.');
     } else if(user.affiliates.referredAddress !== undefined || addressDatabase !== null) {
         throw new Error('You have already redeemed a affiliate code.');
-    } else if(user.roblox === undefined || (new Date().getTime() - new Date(user.roblox.createdAt).getTime()) <= (1000 * 60 * 60 * 24 * 90)) {
-        throw new Error('You need to link your roblox account and the account needs to be at least 90 days old.');
     }
 }
 
@@ -46,7 +44,7 @@ const generalCheckSendAffiliateClaimEarningsUser = (user) => {
     if(user === undefined) {
         throw new Error('Something went wrong. Please try again in a few seconds.');
     } else if(user.affiliates.available < Math.floor(process.env.AFFILIATE_MIN_CLAIM * 1000)) {
-        throw new Error(`You’ll need a minimum of ${process.env.AFFILIATE_MIN_CLAIM} robux in earnings to claim.`);
+        throw new Error(`You’ll need a minimum of ${process.env.AFFILIATE_MIN_CLAIM} coins in earnings to claim.`);
     }
 }
 
