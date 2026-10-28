@@ -10,6 +10,7 @@ module.exports = (io) => {
     require('./unbox')(io);
     require('./battles')(io);
     require('./upgrader')(io);
+    require('./originals')(io);
     require('./cashier')(io);
     require('./admin')(io);
 

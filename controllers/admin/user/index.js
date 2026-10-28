@@ -15,6 +15,7 @@ const RollBet = require('../../../database/models/RollBet');
 const BlackjackBet = require('../../../database/models/BlackjackBet');
 const DuelsBet = require('../../../database/models/DuelsBet');
 const MinesGame = require('../../../database/models/MinesGame');
+const OriginalGame = require('../../../database/models/OriginalGame');
 const TowersGame = require('../../../database/models/TowersGame');
 const UnboxGame = require('../../../database/models/UnboxGame');
 const BattlesBet = require('../../../database/models/BattlesBet');
@@ -160,11 +161,13 @@ const adminGetUserGameListSocket = async(io, socket, user, data, callback) => {
             MinesGame.find({ payout: { $exists: true, $ne: null }, user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('amount payout user createdAt').lean(),
             TowersGame.find({ payout: { $exists: true, $ne: null }, user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('amount payout user createdAt').lean(),
             UnboxGame.find({ payout: { $exists: true, $ne: null }, user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('amount payout user createdAt').lean(),
-            BattlesBet.find({ payout: { $exists: true, $ne: null }, user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('amount payout user createdAt').lean()
+            BattlesBet.find({ payout: { $exists: true, $ne: null }, user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('amount payout user createdAt').lean(),
+            OriginalGame.countDocuments({ user: data.userId }),
+            OriginalGame.find({ user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('game amount payout user createdAt').lean()
         ]);
 
         // Get total games count
-        const count = dataDatabase.slice(0, 8).reduce((a, b) => a + b, 0);
+        const count = dataDatabase.slice(0, 8).reduce((a, b) => a + b, 0) + dataDatabase[16];
 
         // Format games
         let games = [
@@ -175,7 +178,8 @@ const adminGetUserGameListSocket = async(io, socket, user, data, callback) => {
             ...dataDatabase[12].map(game => ({ ...game, method: 'mines' })),
             ...dataDatabase[13].map(game => ({ ...game, method: 'towers' })),
             ...dataDatabase[14].map(game => ({ ...game, method: 'unbox' })),
-            ...dataDatabase[15].map(game => ({ ...game, method: 'battles' }))
+            ...dataDatabase[15].map(game => ({ ...game, method: 'battles' })),
+            ...dataDatabase[17].map(game => ({ ...game, method: game.game }))
         ];
 
         // Sort games by date

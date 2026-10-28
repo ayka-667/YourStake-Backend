@@ -167,7 +167,7 @@ const generalSanitizeBets = (bets) => {
     let sanitized = [];
 
     for(let bet of bets) {
-        if(['mines', 'towers', 'unbox'].includes(bet.method) === true) {
+        if(['mines', 'towers', 'unbox', 'plinko', 'dice', 'flip'].includes(bet.method) === true) {
             bet.fair.seed = {
                 seedClient: bet.fair.seed.seedClient,
                 hash: bet.fair.seed.hash,

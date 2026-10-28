@@ -9,6 +9,7 @@ let socketActiveConnections = {
     unbox: [],
     battles: [],
     upgrader: [],
+    originals: [],
     cashier: [],
     admin: []
 };

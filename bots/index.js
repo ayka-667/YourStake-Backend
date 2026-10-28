@@ -5,7 +5,7 @@
  * controller functions as real players, so their bets, cashouts and wins are real
  * database entries and show up everywhere (crash/roll lists, live bets feed, leaderboard).
  *
- * Games: crash, roll, mines, towers, dice duels, case battles and blackjack.
+ * Games: crash, roll, mines, towers, plinko, dice, flip, dice duels, case battles and blackjack.
  *
  * Config (config/config.env):
  *   BOTS_ENABLED=true   BOTS_COUNT=100   BOTS_WHALES=5
@@ -21,6 +21,7 @@ const { crashGetData, crashSendBetSocket } = require('../controllers/crash');
 const { rollGetData, rollSendBetSocket } = require('../controllers/roll');
 const { minesSendBetSocket, minesSendRevealSocket, minesSendCashoutSocket } = require('../controllers/mines');
 const { towersSendBetSocket, towersSendRevealSocket, towersSendCashoutSocket } = require('../controllers/towers');
+const { originalsSendBetSocket } = require('../controllers/originals');
 const { duelsGetData, duelsSendCreateSocket, duelsSendJoinSocket } = require('../controllers/duels');
 const { battlesGetData, battlesSendCreateSocket, battlesSendJoinSocket } = require('../controllers/battles');
 const {
@@ -421,6 +422,30 @@ const botPlayTowers = async (bot) => {
     await botCall(towersSendCashoutSocket, bot, {});
 };
 
+// Plinko, dice and flip: a short session of a few instant bets.
+const botPlayOriginals = async (bot) => {
+    const game = weighted([['plinko', 4], ['dice', 3], ['flip', 2]]);
+    const count = randInt(1, game === 'plinko' ? 5 : 3);
+    const risk = weighted([['low', 4], ['medium', 3], ['high', 1]]);
+    const rows = pick([8, 10, 12, 14, 16]);
+    const direction = pick(['under', 'over']);
+    const target = Math.round(rand(10, 90) * 100) / 100;
+
+    for(let index = 0; index < count; index++) {
+        const amount = botAmount(bot);
+        await botEnsureBalance(bot, amount);
+
+        let data = { game: game, amount: amount };
+        if(game === 'plinko') { data = { ...data, risk: risk, rows: rows }; }
+        else if(game === 'dice') { data = { ...data, direction: direction, target: target }; }
+        else { data = { ...data, side: pick(['heads', 'tails']) }; }
+
+        const res = await botCall(originalsSendBetSocket, bot, data);
+        if(res.success !== true) { return; }
+        await sleep(rand(1200, 3500));
+    }
+};
+
 const botsSoloLoop = async () => {
     while(true) {
         await sleep(rand(2500, 7000));
@@ -430,7 +455,8 @@ const botsSoloLoop = async () => {
         const bot = chance(0.08) ? (list.find((b) => b.whale) || pick(list)) : pick(list.filter((b) => !b.whale).length ? list.filter((b) => !b.whale) : list);
         const id = bot._id.toString();
         busy.add(id);
-        (chance(0.6) ? botPlayMines(bot) : botPlayTowers(bot))
+        const play = weighted([[botPlayMines, 4], [botPlayTowers, 2], [botPlayOriginals, 4]]);
+        play(bot)
             .catch((err) => console.error('[bots] solo', err.message))
             .finally(() => busy.delete(id));
     }
