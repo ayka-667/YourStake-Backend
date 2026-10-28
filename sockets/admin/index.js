@@ -53,7 +53,6 @@ module.exports = (io) => {
         require('./promo')(io, socket);
         require('./filter')(io, socket);
         require('./cashier')(io, socket);
-        require('./box')(io, socket);
         require('./rain')(io, socket);
         require('./leaderboard')(io, socket);
         require('./stats')(io, socket);

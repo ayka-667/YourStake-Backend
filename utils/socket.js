@@ -6,9 +6,6 @@ let socketActiveConnections = {
     duels: [],
     mines: [],
     towers: [],
-    unbox: [],
-    battles: [],
-    upgrader: [],
     originals: [],
     cashier: [],
     admin: []

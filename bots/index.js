@@ -5,7 +5,7 @@
  * controller functions as real players, so their bets, cashouts and wins are real
  * database entries and show up everywhere (crash/roll lists, live bets feed, leaderboard).
  *
- * Games: crash, roll, mines, towers, plinko, dice, flip, dice duels, case battles and blackjack.
+ * Games: crash, roll, mines, towers, plinko, dice, flip, dice duels and blackjack.
  *
  * Config (config/config.env):
  *   BOTS_ENABLED=true   BOTS_COUNT=100   BOTS_WHALES=5
@@ -23,7 +23,6 @@ const { minesSendBetSocket, minesSendRevealSocket, minesSendCashoutSocket } = re
 const { towersSendBetSocket, towersSendRevealSocket, towersSendCashoutSocket } = require('../controllers/towers');
 const { originalsSendBetSocket } = require('../controllers/originals');
 const { duelsGetData, duelsSendCreateSocket, duelsSendJoinSocket } = require('../controllers/duels');
-const { battlesGetData, battlesSendCreateSocket, battlesSendJoinSocket } = require('../controllers/battles');
 const {
     blackjackGetTablesRaw,
     blackjackSendJoinSocket,
@@ -34,7 +33,6 @@ const {
     blackjackSendDoubleSocket
 } = require('../controllers/blackjack');
 const { blackjackGetCardsValue } = require('../utils/blackjack');
-const Box = require('../database/models/Box');
 const { generalChatAddMessage } = require('../controllers/general/chat');
 const { generalUserGetLevel, generalUserGetRakeback } = require('../utils/general/user');
 
@@ -543,118 +541,6 @@ const botsDuelsWatchTick = () => {
     if(duelsSeen.size > 500) { duelsSeen = new Map(); }
 };
 
-// ---------- case battles ----------
-
-const battlesOpenGames = async () => ((await battlesGetData()).games || []).filter((game) => game.state === 'created' && game.bets.length < game.playerCount);
-const battlesHasPlayer = (game, bot) => game.bets.some((bet) => bet.user && bet.user._id && bet.user._id.toString() === bot._id.toString());
-const battlesFreeSlot = (game) => [...Array(game.playerCount).keys()].find((slot) => slot > 0 && !game.bets.some((bet) => bet.slot === slot));
-
-const botJoinBattle = async (bot, game) => {
-    const slot = battlesFreeSlot(game);
-    if(slot === undefined) { return false; }
-    await botEnsureBalance(bot, game.amount);
-    const res = await botCall(battlesSendJoinSocket, bot, { gameId: game._id, slot: slot });
-    if(res.success !== true && process.env.BOTS_DEBUG) { console.log('[bots] battle join', bot.username, res.error && res.error.message); }
-    return res.success === true;
-};
-
-const botsFillBattle = async (gameId, whale) => {
-    const keepSeat = chance(0.3);
-
-    while(true) {
-        await sleep(rand(5000, 25000));
-        const game = (await battlesOpenGames()).find((element) => element._id === gameId);
-        if(game === undefined) { return; }
-
-        if(game.playerCount - game.bets.length === 1 && keepSeat) {
-            await sleep(rand(60000, 150000));
-            if((await battlesOpenGames()).find((element) => element._id === gameId) === undefined) { return; }
-        }
-
-        const candidates = botsOnline().filter((bot) => bot.whale === whale && !battlesHasPlayer(game, bot));
-        if(candidates.length === 0) { return; }
-        const fresh = (await battlesOpenGames()).find((element) => element._id === gameId);
-        if(fresh === undefined) { return; }
-        await botJoinBattle(pick(candidates), fresh);
-    }
-};
-
-const botsBattlesLoop = async () => {
-    while(true) {
-        await sleep(rand(40000, 120000));
-        try {
-            if((await battlesOpenGames()).length >= 3) { continue; }
-
-            const boxes = await Box.find({ state: 'active' }).select('amount').sort({ amount: 1 }).lean();
-            if(boxes.length === 0) { continue; }
-
-            const list = botsOnline().filter((bot) => !busy.has(bot._id.toString()));
-            if(list.length === 0) { continue; }
-
-            const whale = chance(0.12) && list.some((bot) => bot.whale);
-            const bot = pick(list.filter((b) => b.whale === whale));
-            const pool = whale ? boxes.slice(-3) : boxes.slice(0, Math.max(1, boxes.length - 2));
-            const picks = {};
-            for(let index = 0; index < randInt(1, whale ? 3 : 5); index++) {
-                const box = chance(0.7) ? pool[0] : pick(pool);
-                picks[box._id] = (picks[box._id] || 0) + 1;
-            }
-            const selection = Object.entries(picks).map(([id, count]) => ({ _id: id.toString(), count: count }));
-            const cost = selection.reduce((sum, entry) => sum + boxes.find((box) => box._id.toString() === entry._id).amount * entry.count, 0);
-
-            await botEnsureBalance(bot, cost);
-            const res = await botCall(battlesSendCreateSocket, bot, {
-                boxes: selection,
-                playerCount: whale ? 2 : weighted([[2, 10], [3, 4], [4, 3]]),
-                mode: 'standard',
-                levelMin: 0,
-                funding: 0,
-                private: false,
-                affiliateOnly: false,
-                cursed: false,
-                terminal: false
-            });
-            if(res.success !== true) {
-                if(process.env.BOTS_DEBUG) { console.log('[bots] battle create', bot.username, res.error && res.error.message); }
-                continue;
-            }
-
-            const game = (await battlesOpenGames()).find((element) => battlesHasPlayer(element, bot));
-            if(game !== undefined) { botsFillBattle(game._id, whale).catch((err) => console.error('[bots] battle fill', err.message)); }
-        } catch(err) {
-            console.error('[bots] battles', err.message);
-        }
-    }
-};
-
-// Join battles opened by real players
-let battlesSeen = new Map();
-
-const botsBattlesWatchTick = async () => {
-    try {
-        const ids = new Set(bots.map((bot) => bot._id.toString()));
-        for(const game of await battlesOpenGames()) {
-            const creator = game.bets.find((bet) => bet.slot === 0);
-            const creatorId = creator && creator.user && creator.user._id ? creator.user._id.toString() : null;
-            if(creatorId === null || ids.has(creatorId)) { continue; }
-
-            const key = game._id + ':' + game.bets.length;
-            if(battlesSeen.has(key)) { continue; }
-            battlesSeen.set(key, true);
-
-            setTimeout(async () => {
-                const current = (await battlesOpenGames()).find((element) => element._id === game._id);
-                if(current === undefined || current.bets.length !== game.bets.length) { return; }
-                const candidates = botsOnline().filter((bot) => !battlesHasPlayer(current, bot) && (current.amount >= 1000 * COIN ? bot.whale : true));
-                if(candidates.length > 0) { await botJoinBattle(pick(candidates), current); }
-            }, rand(6000, 20000));
-        }
-        if(battlesSeen.size > 500) { battlesSeen = new Map(); }
-    } catch(err) {
-        console.error('[bots] battles watch', err.message);
-    }
-};
-
 // ---------- blackjack ----------
 
 const BLACKJACK_SEATS = 5;
@@ -888,9 +774,7 @@ module.exports = (io) => {
             botsChatLoop();
             botsSoloLoop();
             botsDuelsLoop();
-            botsBattlesLoop();
             botsBlackjackSeatsLoop();
-            setInterval(botsBattlesWatchTick, 4000);
             setInterval(botsDuelsWatchTick, 3000);
             setInterval(botsBlackjackTick, 1000);
             console.log(`[bots] ${bots.length} fake players running (${whales} high rollers)`);

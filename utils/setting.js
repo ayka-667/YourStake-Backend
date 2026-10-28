@@ -56,9 +56,6 @@ const settingInitDatabase = async () => {
           "duels.enabled": true,
           "mines.enabled": true,
           "towers.enabled": true,
-          "unbox.enabled": true,
-          "battles.enabled": true,
-          "upgrader.enabled": true,
         },
         robux: {
           "deposit.enabled": false,

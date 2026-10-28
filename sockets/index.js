@@ -7,9 +7,6 @@ module.exports = (io) => {
     require('./duels')(io);
     require('./mines')(io);
     require('./towers')(io);
-    require('./unbox')(io);
-    require('./battles')(io);
-    require('./upgrader')(io);
     require('./originals')(io);
     require('./cashier')(io);
     require('./admin')(io);

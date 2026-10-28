@@ -18,8 +18,6 @@ const DuelsBet = require('../../../database/models/DuelsBet');
 const MinesGame = require('../../../database/models/MinesGame');
 const OriginalGame = require('../../../database/models/OriginalGame');
 const TowersGame = require('../../../database/models/TowersGame');
-const UnboxGame = require('../../../database/models/UnboxGame');
-const BattlesBet = require('../../../database/models/BattlesBet');
 
 // Load utils
 const {
@@ -75,58 +73,46 @@ const generalGetUserBetsSocket = async(io, socket, user, data, callback) => {
             DuelsBet.countDocuments({ payout: { $exists: true, $ne: null }, user: user._id }),
             MinesGame.countDocuments({ payout: { $exists: true, $ne: null }, user: user._id }),
             TowersGame.countDocuments({ payout: { $exists: true, $ne: null }, user: user._id }),
-            UnboxGame.countDocuments({ payout: { $exists: true, $ne: null }, user: user._id }),
-            BattlesBet.countDocuments({ payout: { $exists: true, $ne: null }, user: user._id }),
             CrashBet.find({ payout: { $exists: true, $ne: null }, user: user._id }).sort({ createdAt: -1 }).limit(data.page * 8).select('amount payout actions game user createdAt').populate({ path: 'game', select: 'fair state', populate: { path: 'fair.seed', select: 'seedServer hash seedPublic' } }).lean(),
             RollBet.find({ payout: { $exists: true, $ne: null }, user: user._id }).sort({ createdAt: -1 }).limit(data.page * 8).select('amount payout actions game user createdAt').populate({ path: 'game', select: 'fair state', populate: { path: 'fair.seed', select: 'seedServer hash seedPublic' } }).lean(),
             BlackjackBet.find({ payout: { $exists: true, $ne: null }, user: user._id }).sort({ createdAt: -1 }).limit(data.page * 8).select('amount payout actions game user createdAt').populate({ path: 'game', select: 'fair' }).lean(),
             DuelsBet.find({ payout: { $exists: true, $ne: null }, user: user._id }).sort({ createdAt: -1 }).limit(data.page * 8).select('amount payout actions game user createdAt').populate({ path: 'game', select: 'fair' }).lean(),
             MinesGame.find({ payout: { $exists: true, $ne: null }, user: user._id }).sort({ createdAt: -1 }).limit(data.page * 8).select('amount payout deck revealed fair user createdAt').populate({ path: 'fair.seed', select: 'seedClient seedServer hash state' }).lean(),
             TowersGame.find({ payout: { $exists: true, $ne: null }, user: user._id }).sort({ createdAt: -1 }).limit(data.page * 8).select('amount payout deck revealed fair user createdAt').populate({ path: 'fair.seed', select: 'seedClient seedServer hash state' }).lean(),
-            UnboxGame.find({ payout: { $exists: true, $ne: null }, user: user._id }).sort({ createdAt: -1 }).limit(data.page * 8).select('amount payout outcome fair user createdAt').populate({ path: 'fair.seed', select: 'seedClient seedServer hash state' }).lean(),
-            BattlesBet.find({ payout: { $exists: true, $ne: null }, user: user._id }).sort({ createdAt: -1 }).limit(data.page * 8).select('amount payout outcomes fair user createdAt').populate({ path: 'game', select: 'fair' }).lean(),
             OriginalGame.countDocuments({ user: user._id }),
             OriginalGame.find({ user: user._id }).sort({ createdAt: -1 }).limit(data.page * 8).select('game amount payout multiplier options outcome fair user createdAt').populate({ path: 'fair.seed', select: 'seedClient seedServer hash state' }).lean()
         ]);
 
         // Get total bets count
-        const count = dataDatabase.slice(0, 8).reduce((a, b) => a + b, 0) + dataDatabase[16];
+        const count = dataDatabase.slice(0, 6).reduce((a, b) => a + b, 0) + dataDatabase[12];
 
         // Format bets
         let bets = [
-            ...dataDatabase[8].map(bet => ({
+            ...dataDatabase[6].map(bet => ({
                 ...bet,
                 method: 'crash'
             })),
-            ...dataDatabase[9].map(bet => ({
+            ...dataDatabase[7].map(bet => ({
                 ...bet,
                 method: 'roll'
             })),
-            ...dataDatabase[10].map(bet => ({
+            ...dataDatabase[8].map(bet => ({
                 ...bet,
                 method: 'blackjack'
             })),
-            ...dataDatabase[11].map(bet => ({
+            ...dataDatabase[9].map(bet => ({
                 ...bet,
                 method: 'duels'
             })),
-            ...dataDatabase[12].map(bet => ({
+            ...dataDatabase[10].map(bet => ({
                 ...bet,
                 method: 'mines'
             })),
-            ...dataDatabase[13].map(bet => ({
+            ...dataDatabase[11].map(bet => ({
                 ...bet,
                 method: 'towers'
             })),
-            ...dataDatabase[14].map(bet => ({
-                ...bet,
-                method: 'unbox'
-            })),
-            ...dataDatabase[15].map(bet => ({
-                ...bet,
-                method: 'battles'
-            })),
-            ...dataDatabase[17].map(bet => ({
+            ...dataDatabase[13].map(bet => ({
                 ...bet,
                 method: bet.game
             }))

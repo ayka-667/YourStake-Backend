@@ -17,8 +17,6 @@ const DuelsBet = require('../../../database/models/DuelsBet');
 const MinesGame = require('../../../database/models/MinesGame');
 const OriginalGame = require('../../../database/models/OriginalGame');
 const TowersGame = require('../../../database/models/TowersGame');
-const UnboxGame = require('../../../database/models/UnboxGame');
-const BattlesBet = require('../../../database/models/BattlesBet');
 
 // Load utils
 const {
@@ -152,34 +150,28 @@ const adminGetUserGameListSocket = async(io, socket, user, data, callback) => {
             DuelsBet.countDocuments({ payout: { $exists: true, $ne: null }, user: data.userId }),
             MinesGame.countDocuments({ payout: { $exists: true, $ne: null }, user: data.userId }),
             TowersGame.countDocuments({ payout: { $exists: true, $ne: null }, user: data.userId }),
-            UnboxGame.countDocuments({ payout: { $exists: true, $ne: null }, user: data.userId }),
-            BattlesBet.countDocuments({ payout: { $exists: true, $ne: null }, user: data.userId }),
             CrashBet.find({ payout: { $exists: true, $ne: null }, user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('amount payout user createdAt').lean(),
             RollBet.find({ payout: { $exists: true, $ne: null }, user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('amount payout user createdAt').lean(),
             BlackjackBet.find({ payout: { $exists: true, $ne: null }, user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('amount payout actions user createdAt').lean(),
             DuelsBet.find({ payout: { $exists: true, $ne: null }, user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('amount payout user createdAt').lean(),
             MinesGame.find({ payout: { $exists: true, $ne: null }, user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('amount payout user createdAt').lean(),
             TowersGame.find({ payout: { $exists: true, $ne: null }, user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('amount payout user createdAt').lean(),
-            UnboxGame.find({ payout: { $exists: true, $ne: null }, user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('amount payout user createdAt').lean(),
-            BattlesBet.find({ payout: { $exists: true, $ne: null }, user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('amount payout user createdAt').lean(),
             OriginalGame.countDocuments({ user: data.userId }),
             OriginalGame.find({ user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('game amount payout user createdAt').lean()
         ]);
 
         // Get total games count
-        const count = dataDatabase.slice(0, 8).reduce((a, b) => a + b, 0) + dataDatabase[16];
+        const count = dataDatabase.slice(0, 6).reduce((a, b) => a + b, 0) + dataDatabase[12];
 
         // Format games
         let games = [
-            ...dataDatabase[8].map(game => ({ ...game, method: 'crash' })),
-            ...dataDatabase[9].map(game => ({ ...game, method: 'roll' })),
-            ...dataDatabase[10].map(game => ({ ...game, method: 'blackjack' })),
-            ...dataDatabase[11].map(game => ({ ...game, method: 'duels' })),
-            ...dataDatabase[12].map(game => ({ ...game, method: 'mines' })),
-            ...dataDatabase[13].map(game => ({ ...game, method: 'towers' })),
-            ...dataDatabase[14].map(game => ({ ...game, method: 'unbox' })),
-            ...dataDatabase[15].map(game => ({ ...game, method: 'battles' })),
-            ...dataDatabase[17].map(game => ({ ...game, method: game.game }))
+            ...dataDatabase[6].map(game => ({ ...game, method: 'crash' })),
+            ...dataDatabase[7].map(game => ({ ...game, method: 'roll' })),
+            ...dataDatabase[8].map(game => ({ ...game, method: 'blackjack' })),
+            ...dataDatabase[9].map(game => ({ ...game, method: 'duels' })),
+            ...dataDatabase[10].map(game => ({ ...game, method: 'mines' })),
+            ...dataDatabase[11].map(game => ({ ...game, method: 'towers' })),
+            ...dataDatabase[13].map(game => ({ ...game, method: game.game }))
         ];
 
         // Sort games by date

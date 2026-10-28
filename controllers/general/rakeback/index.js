@@ -1,6 +1,5 @@
 // Load database models
 const User = require('../../../database/models/User');
-const Box = require('../../../database/models/Box');
 const BalanceTransaction = require('../../../database/models/BalanceTransaction');
 
 // Load utils
@@ -10,17 +9,6 @@ const {
 const {
     generalCheckSendRakebackClaimUser
 } = require('../../../utils/general/rakeback');
-
-const generalGetRakebackDataSocket = async(io, socket, user, data, callback) => {
-    try {
-        // Get rakeback boxes
-        const boxesDatabase = await Box.find({ type: 'reward', state: 'active' }).select('name amount levelMin type state');
-
-        callback({ success: true, boxes: boxesDatabase });
-    } catch(err) {
-        callback({ success: false, error: { type: 'error', message: err.message } });
-    }
-}
 
 const generalSendRakebackClaimSocket = async(io, socket, user, data, callback) => {
     try {
@@ -54,6 +42,5 @@ const generalSendRakebackClaimSocket = async(io, socket, user, data, callback) =
 }
 
 module.exports = {
-    generalGetRakebackDataSocket,
     generalSendRakebackClaimSocket
 }

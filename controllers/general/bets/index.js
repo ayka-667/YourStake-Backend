@@ -7,8 +7,6 @@ const BlackjackBet = require('../../../database/models/BlackjackBet');
 const DuelsBet = require('../../../database/models/DuelsBet');
 const MinesGame = require('../../../database/models/MinesGame');
 const TowersGame = require('../../../database/models/TowersGame');
-const UnboxGame = require('../../../database/models/UnboxGame');
-const BattlesBet = require('../../../database/models/BattlesBet');
 const OriginalGame = require('../../../database/models/OriginalGame');
 
 // Load utils
@@ -34,8 +32,6 @@ const generalGetBetsDataSocket = async(io, socket, user, data, callback) => {
                 DuelsBet.find({ payout: { $exists: true, $ne: null }, user: user._id, bot: false }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user bot updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
                 MinesGame.find({ payout: { $exists: true, $ne: null }, user: user._id }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
                 TowersGame.find({ payout: { $exists: true, $ne: null }, user: user._id }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
-                UnboxGame.find({ payout: { $exists: true, $ne: null }, user: user._id }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
-                BattlesBet.find({ payout: { $exists: true, $ne: null }, user: user._id, bot: false }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user bot updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
                 OriginalGame.find({ user: user._id }).sort({ updatedAt: -1 }).limit(15).select('game amount payout multiplier options outcome user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean()
             ];
 
@@ -50,9 +46,7 @@ const generalGetBetsDataSocket = async(io, socket, user, data, callback) => {
                 ...dataDatabase[3].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'duels'})),
                 ...dataDatabase[4].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'mines'})),
                 ...dataDatabase[5].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'towers'})),
-                ...dataDatabase[6].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'unbox'})) ,
-                ...dataDatabase[7].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'battles'})),
-                ...dataDatabase[8].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: bet.game}))
+                ...dataDatabase[6].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: bet.game}))
             ];
 
             // Sort bets by date
@@ -107,24 +101,18 @@ const generalBetsInit = async() => {
             DuelsBet.find({ payout: { $exists: true, $ne: null }, bot: false }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user bot updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
             MinesGame.find({ payout: { $exists: true, $ne: null } }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
             TowersGame.find({ payout: { $exists: true, $ne: null } }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
-            UnboxGame.find({ payout: { $exists: true, $ne: null } }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
-            BattlesBet.find({ payout: { $exists: true, $ne: null }, bot: false }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user bot updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
             CrashBet.find({ payout: { $exists: true, $ne: null, $gte: 10000000 } }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
             RollBet.find({ payout: { $exists: true, $ne: null, $gte: 10000000 } }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
             BlackjackBet.find({ payout: { $exists: true, $ne: null, $gte: 10000000 } }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier actions user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
             DuelsBet.find({ payout: { $exists: true, $ne: null, $gte: 10000000 }, bot: false }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user bot updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
             MinesGame.find({ payout: { $exists: true, $ne: null, $gte: 10000000 } }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
             TowersGame.find({ payout: { $exists: true, $ne: null, $gte: 10000000 } }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
-            UnboxGame.find({ payout: { $exists: true, $ne: null, $gte: 10000000 } }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
-            BattlesBet.find({ payout: { $exists: true, $ne: null, $gte: 10000000 }, bot: false }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user bot updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
             CrashBet.find({ payout: { $exists: true, $ne: null, $gte: 10 }, multiplier: { $gte: 500 } }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
             RollBet.find({ payout: { $exists: true, $ne: null, $gte: 10 }, multiplier: { $gte: 500 } }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
             BlackjackBet.find({ payout: { $exists: true, $ne: null, $gte: 10 }, multiplier: { $gte: 500 } }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier actions user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
             DuelsBet.find({ payout: { $exists: true, $ne: null, $gte: 10 }, multiplier: { $gte: 500 }, bot: false }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user bot updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
             MinesGame.find({ payout: { $exists: true, $ne: null, $gte: 10 }, multiplier: { $gte: 500 } }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
             TowersGame.find({ payout: { $exists: true, $ne: null, $gte: 10 }, multiplier: { $gte: 500 } }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
-            UnboxGame.find({ payout: { $exists: true, $ne: null, $gte: 10 }, multiplier: { $gte: 500 } }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
-            BattlesBet.find({ payout: { $exists: true, $ne: null, $gte: 10 }, multiplier: { $gte: 500 }, bot: false }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user bot updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
             OriginalGame.find({}).sort({ updatedAt: -1 }).limit(15).select('game amount payout multiplier options outcome user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
             OriginalGame.find({ payout: { $gte: 10000000 } }).sort({ updatedAt: -1 }).limit(15).select('game amount payout multiplier options outcome user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
             OriginalGame.find({ payout: { $gte: 10 }, multiplier: { $gte: 500 } }).sort({ updatedAt: -1 }).limit(15).select('game amount payout multiplier options outcome user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean()
@@ -141,31 +129,25 @@ const generalBetsInit = async() => {
             ...dataDatabase[3].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'duels'})), 
             ...dataDatabase[4].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'mines'})), 
             ...dataDatabase[5].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'towers'})), 
-            ...dataDatabase[6].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'unbox'})), 
-            ...dataDatabase[7].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'battles'})),
-            ...dataDatabase[24].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: bet.game}))
+            ...dataDatabase[18].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: bet.game}))
         ];
         generalBets.whale = [ 
-            ...dataDatabase[8].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'crash'})), 
-            ...dataDatabase[9].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'roll'})), 
-            ...dataDatabase[10].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'blackjack'})), 
-            ...dataDatabase[11].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'duels'})), 
-            ...dataDatabase[12].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'mines'})), 
-            ...dataDatabase[13].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'towers'})), 
-            ...dataDatabase[14].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'unbox'})), 
-            ...dataDatabase[15].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'battles'})),
-            ...dataDatabase[25].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: bet.game}))
+            ...dataDatabase[6].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'crash'})), 
+            ...dataDatabase[7].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'roll'})), 
+            ...dataDatabase[8].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'blackjack'})), 
+            ...dataDatabase[9].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'duels'})), 
+            ...dataDatabase[10].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'mines'})), 
+            ...dataDatabase[11].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'towers'})), 
+            ...dataDatabase[19].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: bet.game}))
         ];
         generalBets.lucky = [ 
-            ...dataDatabase[16].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'crash'})), 
-            ...dataDatabase[17].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'roll'})), 
-            ...dataDatabase[18].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'blackjack'})), 
-            ...dataDatabase[19].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'duels'})), 
-            ...dataDatabase[20].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'mines'})), 
-            ...dataDatabase[21].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'towers'})), 
-            ...dataDatabase[22].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'unbox'})), 
-            ...dataDatabase[23].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'battles'})),
-            ...dataDatabase[26].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: bet.game}))
+            ...dataDatabase[12].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'crash'})), 
+            ...dataDatabase[13].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'roll'})), 
+            ...dataDatabase[14].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'blackjack'})), 
+            ...dataDatabase[15].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'duels'})), 
+            ...dataDatabase[16].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'mines'})), 
+            ...dataDatabase[17].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'towers'})), 
+            ...dataDatabase[20].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: bet.game}))
         ];
 
         // Sort bets by date
