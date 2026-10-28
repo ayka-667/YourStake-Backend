@@ -8,6 +8,7 @@ const Rain = require('../../database/models/Rain');
 const Leaderboard = require('../../database/models/Leaderboard');
 
 // Load utils
+const { AFFILIATE_RATE } = require('../../utils/general/affiliate');
 const {
     socketRemoveAntiSpam
 } = require('../../utils/socket');
@@ -207,7 +208,7 @@ const rollGameComplete = async(io) => {
             const amountLimits = bet.multiplier >= 125 || amountPayout === 0 ? bet.amount : amountPayout;
 
             // Get user affiliate amount
-            const amountAffiliate = bet.user.affiliates.referrer !== undefined && bet.user.limits.blockSponsor !== true ? Math.floor(bet.amount * 0.005) : 0;
+            const amountAffiliate = bet.user.affiliates.referrer !== undefined && bet.user.limits.blockSponsor !== true ? Math.floor(bet.amount * AFFILIATE_RATE) : 0;
 
             // Add user bet amount to rain bet amount if user is not sponsored
             amountBetRain = amountBetRain + (bet.user.limits.blockSponsor !== true ? bet.amount : 0);

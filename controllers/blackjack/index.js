@@ -7,6 +7,7 @@ const BlackjackBet = require('../../database/models/BlackjackBet');
 const Leaderboard = require('../../database/models/Leaderboard');
 
 // Load utils
+const { AFFILIATE_RATE } = require('../../utils/general/affiliate');
 const {
     socketRemoveAntiSpam
 } = require('../../utils/socket');
@@ -112,6 +113,7 @@ const blackjackSendJoinSocket = async(io, socket, user, data, callback) => {
                 rakeback: rakeback,
                 stats: user.stats,
                 limits: user.limits,
+                affiliates: { referrer: user.affiliates !== undefined ? user.affiliates.referrer : undefined },
                 createdAt: user.createdAt
             }, 
             bet: null 
@@ -872,6 +874,7 @@ const blackjackGameComplete = async(io, blackjackTable) => {
         // Create database queries promises array
         let promiseUsers = [];
         let promiseBets = [];
+        let promiseAffiliates = [];
 
         // Create reports stats and rain variable
         let amountBetTotal = 0;
@@ -931,6 +934,22 @@ const blackjackGameComplete = async(io, blackjackTable) => {
             // Get user rakeback amount
             const amountRakeback = player.user.limits.blockSponsor !== true ? Math.floor(amountBet * player.user.rakeback.percentage * settings.general.reward.multiplier) : 0;
 
+            // Get user affiliate amount
+            const referrer = player.user.affiliates !== undefined ? player.user.affiliates.referrer : undefined;
+            const amountAffiliate = referrer !== undefined && referrer !== null && player.user.limits.blockSponsor !== true ? Math.floor(amountBet * AFFILIATE_RATE) : 0;
+
+            // Credit the referring user (not part of the users promise array: those results are sent back to the players)
+            if(amountAffiliate > 0) {
+                promiseAffiliates.push(
+                    User.findByIdAndUpdate(referrer, {
+                        $inc: {
+                            'affiliates.earned': amountAffiliate,
+                            'affiliates.available': amountAffiliate
+                        }
+                    })
+                );
+            }
+
             // Add user update query to users promise array
             promiseUsers.push(
                 User.findByIdAndUpdate(player.user._id, {
@@ -942,7 +961,8 @@ const blackjackGameComplete = async(io, blackjackTable) => {
                             'limits.betToRain': player.user.limits.betToRain <= amountBet <= 0 ? -player.user.limits.betToRain : -amountBet,
                             'leaderboard.points': leaderboardDatabase !== null && player.user.limits.blockSponsor !== true && player.user.limits.blockLeaderboard !== true ? amountBet : 0,
                             'rakeback.earned': amountRakeback,
-                            'rakeback.available': amountRakeback
+                            'rakeback.available': amountRakeback,
+                            'affiliates.generated': amountAffiliate
                         },
                         updatedAt: new Date().getTime()
                 }, { new: true }).select('balance xp stats rakeback mute ban verifiedAt updatedAt').lean()
@@ -982,14 +1002,15 @@ const blackjackGameComplete = async(io, blackjackTable) => {
                 updatedAt: new Date().getTime()
             }),
             ...promiseUsers,
-            ...promiseBets
+            ...promiseBets,
+            ...promiseAffiliates
         ]);
 
         // Send updatetd users to frontend
         for(const user of dataDatabase.slice(1, promiseUsers.length + 1)) { io.of('/general').to(user._id.toString()).emit('user', { user: user }); }
 
         // Send updated bets to frontend
-        for(const bet of dataDatabase.slice(promiseUsers.length + 1)) { generalAddBetsList(io, { ...bet, user: generalUserGetFormated(bet.user), method: 'blackjack' }); }
+        for(const bet of dataDatabase.slice(promiseUsers.length + 1, promiseUsers.length + 1 + promiseBets.length)) { generalAddBetsList(io, { ...bet, user: generalUserGetFormated(bet.user), method: 'blackjack' }); }
 
         setTimeout(async() => {
             // Generate new game

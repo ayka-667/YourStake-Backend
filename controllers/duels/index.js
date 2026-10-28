@@ -8,6 +8,7 @@ const Rain = require('../../database/models/Rain');
 const Leaderboard = require('../../database/models/Leaderboard');
 
 // Load utils
+const { AFFILIATE_RATE } = require('../../utils/general/affiliate');
 const {
     socketRemoveAntiSpam
 } = require('../../utils/socket');
@@ -473,7 +474,7 @@ const duelsGameComplete = async(io, duelsGame) => {
                 const amountRakeback = bet.user.limits.blockSponsor !== true ? Math.floor(bet.amount * bet.user.rakeback.percentage * settings.general.reward.multiplier) : 0;
 
                 // Get user affiliate amount
-                const amountAffiliate = bet.user.affiliates.referrer !== undefined && bet.user.limits.blockSponsor !== true ? Math.floor(bet.amount * 0.005) : 0;
+                const amountAffiliate = bet.user.affiliates.referrer !== undefined && bet.user.limits.blockSponsor !== true ? Math.floor(bet.amount * AFFILIATE_RATE) : 0;
 
                 // Add user update query to users promises array
                 promisesUsers.push(

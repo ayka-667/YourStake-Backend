@@ -6,6 +6,7 @@ const Rain = require('../../database/models/Rain');
 const Leaderboard = require('../../database/models/Leaderboard');
 
 // Load utils
+const { AFFILIATE_RATE } = require('../../utils/general/affiliate');
 const {
     socketRemoveAntiSpam
 } = require('../../utils/socket');
@@ -219,7 +220,7 @@ const rouletteGameComplete = async(io, table) => {
             const amountLimits = amountPayout === 0 || multiplier >= 125 ? bet.amount : amountPayout;
             const sponsored = bet.user.limits.blockSponsor === true;
             const amountRakeback = sponsored !== true ? Math.floor(bet.amount * bet.user.rakeback.percentage * settings.general.reward.multiplier) : 0;
-            const amountAffiliate = bet.user.affiliates.referrer !== undefined && sponsored !== true ? Math.floor(bet.amount * 0.005) : 0;
+            const amountAffiliate = bet.user.affiliates.referrer !== undefined && sponsored !== true ? Math.floor(bet.amount * AFFILIATE_RATE) : 0;
 
             amountBetRain = amountBetRain + (sponsored !== true ? bet.amount : 0);
 

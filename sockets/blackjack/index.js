@@ -79,7 +79,7 @@ module.exports = (io) => {
                     await rateLimiter.consume(identifier);
                     await socketCheckAntiSpam(socket.decoded._id);
                     try {
-                        const user = await User.findById(socket.decoded._id).select('roblox.id username avatar rank balance xp stats limits mute ban createdAt').lean();
+                        const user = await User.findById(socket.decoded._id).select('roblox.id username avatar rank balance xp stats limits affiliates.referrer mute ban createdAt').lean();
                         socketCheckUserData(user, true);
                         settingCheck(user, 'games.blackjack.enabled');
                         blackjackSendJoinSocket(io, socket, user, data, callback);

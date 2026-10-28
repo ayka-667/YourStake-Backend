@@ -8,6 +8,7 @@ const Leaderboard = require('../../database/models/Leaderboard');
 const Rain = require('../../database/models/Rain');
 
 // Load utils
+const { AFFILIATE_RATE } = require('../../utils/general/affiliate');
 const {
     socketRemoveAntiSpam
 } = require('../../utils/socket');
@@ -85,7 +86,7 @@ const minesSendBetSocket = async(io, socket, user, data, callback) => {
         const amountRakeback = user.limits.blockSponsor !== true ? Math.floor(amount * rakeback.percentage * settings.general.reward.multiplier) : 0;
 
         // Get user affiliate amount
-        const amountAffiliate = user.affiliates.referrer !== undefined && user.limits.blockSponsor !== true ? Math.floor(amount * 0.005) : 0;
+        const amountAffiliate = user.affiliates.referrer !== undefined && user.limits.blockSponsor !== true ? Math.floor(amount * AFFILIATE_RATE) : 0;
 
         // Combine nonce, server seed and client seed to one string
         const combined = `${seedDatabase.seedServer}-${seedDatabase.nonce}-${seedDatabase.seedClient}`;

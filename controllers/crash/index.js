@@ -8,6 +8,7 @@ const Rain = require('../../database/models/Rain');
 const Leaderboard = require('../../database/models/Leaderboard');
 
 // Load utils
+const { AFFILIATE_RATE } = require('../../utils/general/affiliate');
 const {
     socketRemoveAntiSpam
 } = require('../../utils/socket');
@@ -83,7 +84,7 @@ const crashSendBetSocket = async(io, socket, user, data, callback) => {
             const amountRakeback = user.limits.blockSponsor !== true ? Math.floor(amount * rakeback.percentage * settings.general.reward.multiplier) : 0;
 
             // Get user affiliate amount
-            const amountAffiliate = user.affiliates.referrer !== undefined && user.limits.blockSponsor !== true ? Math.floor(amount * 0.005) : 0;
+            const amountAffiliate = user.affiliates.referrer !== undefined && user.limits.blockSponsor !== true ? Math.floor(amount * AFFILIATE_RATE) : 0;
 
             // Create promise array and add update users data, site rain, referred user and create crash bet queries
             let promises = [

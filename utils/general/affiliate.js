@@ -1,5 +1,8 @@
 const validator = require('validator');
 
+// Share of every bet (win or lose) made by a referred player that goes to the code owner
+const AFFILIATE_RATE = process.env.AFFILIATE_RATE !== undefined ? Number(process.env.AFFILIATE_RATE) : 0.1;
+
 const generalCheckSendAffiliateCodeData = (data) => {
     if(data === undefined || data === null) {
         throw new Error('Something went wrong! Please try again in a few seconds.');
@@ -49,6 +52,7 @@ const generalCheckSendAffiliateClaimEarningsUser = (user) => {
 }
 
 module.exports = {
+    AFFILIATE_RATE,
     generalCheckSendAffiliateCodeData,
     generalCheckSendAffiliateCodeCode,
     generalCheckSendAffiliateClaimCodeData,
