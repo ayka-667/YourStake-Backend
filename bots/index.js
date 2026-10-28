@@ -420,9 +420,23 @@ const botPlayTowers = async (bot) => {
     await botCall(towersSendCashoutSocket, bot, {});
 };
 
-// Plinko, dice and flip: a short session of a few instant bets.
+// Spread a stake over one to four roulette spots, mostly outside bets.
+const botRouletteBets = (amount) => {
+    const spots = randInt(1, 4);
+    const chip = Math.max(10, Math.floor(amount / spots));
+    const sides = { color: ['red', 'black'], parity: ['even', 'odd'], half: ['low', 'high'] };
+    let bets = [];
+    for(let index = 0; index < spots; index++) {
+        const type = weighted([['color', 5], ['parity', 2], ['half', 2], ['dozen', 3], ['column', 2], ['number', 4]]);
+        const value = type === 'number' ? randInt(0, 36) : (type === 'dozen' || type === 'column' ? randInt(1, 3) : pick(sides[type]));
+        bets.push({ type: type, value: value, amount: chip });
+    }
+    return bets;
+};
+
+// Plinko, dice, flip and roulette: a short session of a few instant bets.
 const botPlayOriginals = async (bot) => {
-    const game = weighted([['plinko', 4], ['dice', 3], ['flip', 2]]);
+    const game = weighted([['plinko', 4], ['dice', 3], ['flip', 2], ['roulette', 3]]);
     const count = randInt(1, game === 'plinko' ? 5 : 3);
     const risk = weighted([['low', 4], ['medium', 3], ['high', 1]]);
     const rows = pick([8, 10, 12, 14, 16]);
@@ -436,6 +450,7 @@ const botPlayOriginals = async (bot) => {
         let data = { game: game, amount: amount };
         if(game === 'plinko') { data = { ...data, risk: risk, rows: rows }; }
         else if(game === 'dice') { data = { ...data, direction: direction, target: target }; }
+        else if(game === 'roulette') { data = { game: game, bets: botRouletteBets(amount) }; }
         else { data = { ...data, side: pick(['heads', 'tails']) }; }
 
         const res = await botCall(originalsSendBetSocket, bot, data);
