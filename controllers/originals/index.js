@@ -18,7 +18,6 @@ const {
     PLINKO_TABLES,
     DICE_EDGE,
     FLIP_MULTIPLIER,
-    ROULETTE_RED,
     originalsCheckSendBetData,
     originalsCheckSendBetUser,
     originalsCheckSendBetSeed,
@@ -36,7 +35,7 @@ const {
 } = require('../general/bets');
 
 const originalsGetConfig = () => {
-    return { plinko: PLINKO_TABLES, diceEdge: DICE_EDGE, flipMultiplier: FLIP_MULTIPLIER, rouletteRed: ROULETTE_RED };
+    return { plinko: PLINKO_TABLES, diceEdge: DICE_EDGE, flipMultiplier: FLIP_MULTIPLIER };
 }
 
 const originalsSendBetSocket = async(io, socket, user, data, callback) => {
@@ -77,7 +76,7 @@ const originalsSendBetSocket = async(io, socket, user, data, callback) => {
         const result = originalsGetResult(data, hash);
 
         // Get payout amount and stored multiplier (x100, like the other games)
-        const amountPayout = result.payout !== undefined ? result.payout : Math.floor(amount * result.multiplier);
+        const amountPayout = Math.floor(amount * result.multiplier);
         const multiplier = Math.floor(result.multiplier * 100);
 
         // Get limits amount
@@ -152,7 +151,7 @@ const originalsSendBetSocket = async(io, socket, user, data, callback) => {
         if(dataDatabase[3] !== null) { io.of('/general').emit('rain', { rain: dataDatabase[3] }); }
 
         // Add game to the live bets list once the client animation has had time to play
-        const delay = data.game === 'roulette' ? 4500 : data.game === 'plinko' ? 2500 : data.game === 'flip' ? 1200 : 600;
+        const delay = data.game === 'plinko' ? 2500 : data.game === 'flip' ? 1200 : 600;
         setTimeout(() => {
             generalAddBetsList(io, { ...originalsSanitizeGame(game), user: generalUserGetFormated(user), method: data.game });
         }, delay);

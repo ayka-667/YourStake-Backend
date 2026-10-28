@@ -5,7 +5,7 @@
  * controller functions as real players, so their bets, cashouts and wins are real
  * database entries and show up everywhere (crash/roll lists, live bets feed, leaderboard).
  *
- * Games: crash, roll, mines, towers, plinko, dice, flip, dice duels and blackjack.
+ * Games: crash, roll, roulette, mines, towers, plinko, dice, flip, dice duels and blackjack.
  *
  * Config (config/config.env):
  *   BOTS_ENABLED=true   BOTS_COUNT=100   BOTS_WHALES=5
@@ -22,6 +22,7 @@ const { rollGetData, rollSendBetSocket } = require('../controllers/roll');
 const { minesSendBetSocket, minesSendRevealSocket, minesSendCashoutSocket } = require('../controllers/mines');
 const { towersSendBetSocket, towersSendRevealSocket, towersSendCashoutSocket } = require('../controllers/towers');
 const { originalsSendBetSocket } = require('../controllers/originals');
+const { rouletteGetData, rouletteSendBetSocket } = require('../controllers/roulette');
 const { duelsGetData, duelsSendCreateSocket, duelsSendJoinSocket } = require('../controllers/duels');
 const {
     blackjackGetTablesRaw,
@@ -420,23 +421,9 @@ const botPlayTowers = async (bot) => {
     await botCall(towersSendCashoutSocket, bot, {});
 };
 
-// Spread a stake over one to four roulette spots, mostly outside bets.
-const botRouletteBets = (amount) => {
-    const spots = randInt(1, 4);
-    const chip = Math.max(10, Math.floor(amount / spots));
-    const sides = { color: ['red', 'black'], parity: ['even', 'odd'], half: ['low', 'high'] };
-    let bets = [];
-    for(let index = 0; index < spots; index++) {
-        const type = weighted([['color', 5], ['parity', 2], ['half', 2], ['dozen', 3], ['column', 2], ['number', 4]]);
-        const value = type === 'number' ? randInt(0, 36) : (type === 'dozen' || type === 'column' ? randInt(1, 3) : pick(sides[type]));
-        bets.push({ type: type, value: value, amount: chip });
-    }
-    return bets;
-};
-
-// Plinko, dice, flip and roulette: a short session of a few instant bets.
+// Plinko, dice and flip: a short session of a few instant bets.
 const botPlayOriginals = async (bot) => {
-    const game = weighted([['plinko', 4], ['dice', 3], ['flip', 2], ['roulette', 3]]);
+    const game = weighted([['plinko', 4], ['dice', 3], ['flip', 2]]);
     const count = randInt(1, game === 'plinko' ? 5 : 3);
     const risk = weighted([['low', 4], ['medium', 3], ['high', 1]]);
     const rows = pick([8, 10, 12, 14, 16]);
@@ -450,7 +437,6 @@ const botPlayOriginals = async (bot) => {
         let data = { game: game, amount: amount };
         if(game === 'plinko') { data = { ...data, risk: risk, rows: rows }; }
         else if(game === 'dice') { data = { ...data, direction: direction, target: target }; }
-        else if(game === 'roulette') { data = { game: game, bets: botRouletteBets(amount) }; }
         else { data = { ...data, side: pick(['heads', 'tails']) }; }
 
         const res = await botCall(originalsSendBetSocket, bot, data);
@@ -554,6 +540,68 @@ const botsDuelsWatchTick = () => {
         }, rand(5000, 20000));
     }
     if(duelsSeen.size > 500) { duelsSeen = new Map(); }
+};
+
+// Spread a stake over one to four roulette spots, mostly outside bets.
+const botRouletteBets = (amount) => {
+    const spots = randInt(1, 4);
+    const chip = Math.max(10, Math.floor(amount / spots));
+    const sides = { color: ['red', 'black'], parity: ['even', 'odd'], half: ['low', 'high'] };
+    let bets = [];
+    for(let index = 0; index < spots; index++) {
+        const type = weighted([['color', 5], ['parity', 2], ['half', 2], ['dozen', 3], ['column', 2], ['number', 4]]);
+        const value = type === 'number' ? randInt(0, 36) : (type === 'dozen' || type === 'column' ? randInt(1, 3) : pick(sides[type]));
+        bets.push({ type: type, value: value, amount: chip });
+    }
+    return bets;
+};
+
+// ---------- live roulette ----------
+
+// gameId -> { target, players: Set } so each round gets a believable number of bots.
+let roulettePlans = new Map();
+
+const botRouletteBet = async (bot, table, limits) => {
+    const min = Math.round(limits.min * COIN);
+    const max = Math.round(limits.max * COIN);
+    const amount = Math.min(max, Math.max(min, botAmount(bot)));
+    await botEnsureBalance(bot, amount);
+    const res = await botCall(rouletteSendBetSocket, bot, { table: table.table, bets: botRouletteBets(amount) });
+    if(res.success !== true && process.env.BOTS_DEBUG) { console.log('[bots] roulette', bot.username, res.error && res.error.message); }
+    return res.success === true;
+};
+
+const botsRouletteTick = async () => {
+    try {
+        const data = rouletteGetData();
+
+        for(const table of data.tables) {
+            const game = table.game;
+            if(game === null || game.state !== 'created' || game.remaining < 2500) { continue; }
+
+            let plan = roulettePlans.get(game._id.toString());
+            if(plan === undefined) {
+                const whale = table.type === 'whale';
+                plan = { target: whale ? weighted([[0, 3], [1, 4], [2, 2]]) : randInt(1, 6), players: new Set() };
+                roulettePlans.set(game._id.toString(), plan);
+            }
+            if(plan.players.size >= plan.target || chance(0.45) !== true) { continue; }
+
+            const candidates = botsOnline().filter((bot) => bot.whale === (table.type === 'whale') && plan.players.has(bot._id.toString()) !== true);
+            if(candidates.length === 0) { continue; }
+
+            const bot = pick(candidates);
+            plan.players.add(bot._id.toString());
+            botRouletteBet(bot, table, data.limits[table.type]).then((placed) => {
+                // Some players add a second stack before the timer runs out
+                if(placed === true && chance(0.25)) { setTimeout(() => botRouletteBet(bot, table, data.limits[table.type]), rand(2000, 6000)); }
+            });
+        }
+
+        if(roulettePlans.size > 200) { roulettePlans = new Map(); }
+    } catch(err) {
+        console.error('[bots] roulette', err.message);
+    }
 };
 
 // ---------- blackjack ----------
@@ -792,6 +840,7 @@ module.exports = (io) => {
             botsBlackjackSeatsLoop();
             setInterval(botsDuelsWatchTick, 3000);
             setInterval(botsBlackjackTick, 1000);
+            setInterval(botsRouletteTick, 1200);
             console.log(`[bots] ${bots.length} fake players running (${whales} high rollers)`);
         } catch(err) {
             console.error('[bots] failed to start:', err.message);

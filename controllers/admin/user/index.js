@@ -16,6 +16,7 @@ const BlackjackBet = require('../../../database/models/BlackjackBet');
 const DuelsBet = require('../../../database/models/DuelsBet');
 const MinesGame = require('../../../database/models/MinesGame');
 const OriginalGame = require('../../../database/models/OriginalGame');
+const RouletteBet = require('../../../database/models/RouletteBet');
 const TowersGame = require('../../../database/models/TowersGame');
 
 // Load utils
@@ -157,11 +158,13 @@ const adminGetUserGameListSocket = async(io, socket, user, data, callback) => {
             MinesGame.find({ payout: { $exists: true, $ne: null }, user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('amount payout user createdAt').lean(),
             TowersGame.find({ payout: { $exists: true, $ne: null }, user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('amount payout user createdAt').lean(),
             OriginalGame.countDocuments({ user: data.userId }),
-            OriginalGame.find({ user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('game amount payout user createdAt').lean()
+            OriginalGame.find({ user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('game amount payout user createdAt').lean(),
+            RouletteBet.countDocuments({ payout: { $exists: true, $ne: null }, user: data.userId }),
+            RouletteBet.find({ payout: { $exists: true, $ne: null }, user: data.userId }).sort({ createdAt: -1 }).limit(data.page * 14).select('amount payout user createdAt').lean()
         ]);
 
         // Get total games count
-        const count = dataDatabase.slice(0, 6).reduce((a, b) => a + b, 0) + dataDatabase[12];
+        const count = dataDatabase.slice(0, 6).reduce((a, b) => a + b, 0) + dataDatabase[12] + dataDatabase[14];
 
         // Format games
         let games = [
@@ -171,7 +174,8 @@ const adminGetUserGameListSocket = async(io, socket, user, data, callback) => {
             ...dataDatabase[9].map(game => ({ ...game, method: 'duels' })),
             ...dataDatabase[10].map(game => ({ ...game, method: 'mines' })),
             ...dataDatabase[11].map(game => ({ ...game, method: 'towers' })),
-            ...dataDatabase[13].map(game => ({ ...game, method: game.game }))
+            ...dataDatabase[13].map(game => ({ ...game, method: game.game })),
+            ...dataDatabase[15].map(game => ({ ...game, method: 'roulette' }))
         ];
 
         // Sort games by date

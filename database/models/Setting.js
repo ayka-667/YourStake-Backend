@@ -27,7 +27,8 @@ const settingSchema = new mongoose.Schema({
         blackjack: { enabled: { type: Boolean } },
         duels: { enabled: { type: Boolean } },
         mines: { enabled: { type: Boolean } },
-        towers: { enabled: { type: Boolean } }
+        towers: { enabled: { type: Boolean } },
+        roulette: { enabled: { type: Boolean } }
     },
     robux: {
         deposit: { enabled: { type: Boolean } },

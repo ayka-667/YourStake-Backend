@@ -8,6 +8,7 @@ const DuelsBet = require('../../../database/models/DuelsBet');
 const MinesGame = require('../../../database/models/MinesGame');
 const TowersGame = require('../../../database/models/TowersGame');
 const OriginalGame = require('../../../database/models/OriginalGame');
+const RouletteBet = require('../../../database/models/RouletteBet');
 
 // Load utils
 const {
@@ -32,7 +33,8 @@ const generalGetBetsDataSocket = async(io, socket, user, data, callback) => {
                 DuelsBet.find({ payout: { $exists: true, $ne: null }, user: user._id, bot: false }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user bot updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
                 MinesGame.find({ payout: { $exists: true, $ne: null }, user: user._id }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
                 TowersGame.find({ payout: { $exists: true, $ne: null }, user: user._id }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
-                OriginalGame.find({ user: user._id }).sort({ updatedAt: -1 }).limit(15).select('game amount payout multiplier options outcome user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean()
+                OriginalGame.find({ user: user._id }).sort({ updatedAt: -1 }).limit(15).select('game amount payout multiplier options outcome user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
+                RouletteBet.find({ payout: { $exists: true, $ne: null }, user: user._id }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean()
             ];
 
             // Execute the user get querys
@@ -46,7 +48,8 @@ const generalGetBetsDataSocket = async(io, socket, user, data, callback) => {
                 ...dataDatabase[3].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'duels'})),
                 ...dataDatabase[4].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'mines'})),
                 ...dataDatabase[5].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'towers'})),
-                ...dataDatabase[6].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: bet.game}))
+                ...dataDatabase[6].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: bet.game})),
+                ...dataDatabase[7].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'roulette'}))
             ];
 
             // Sort bets by date
@@ -115,7 +118,10 @@ const generalBetsInit = async() => {
             TowersGame.find({ payout: { $exists: true, $ne: null, $gte: 10 }, multiplier: { $gte: 500 } }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
             OriginalGame.find({}).sort({ updatedAt: -1 }).limit(15).select('game amount payout multiplier options outcome user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
             OriginalGame.find({ payout: { $gte: 10000000 } }).sort({ updatedAt: -1 }).limit(15).select('game amount payout multiplier options outcome user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
-            OriginalGame.find({ payout: { $gte: 10 }, multiplier: { $gte: 500 } }).sort({ updatedAt: -1 }).limit(15).select('game amount payout multiplier options outcome user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean()
+            OriginalGame.find({ payout: { $gte: 10 }, multiplier: { $gte: 500 } }).sort({ updatedAt: -1 }).limit(15).select('game amount payout multiplier options outcome user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
+            RouletteBet.find({ payout: { $exists: true, $ne: null } }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
+            RouletteBet.find({ payout: { $exists: true, $ne: null, $gte: 10000000 } }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean(),
+            RouletteBet.find({ payout: { $exists: true, $ne: null, $gte: 10 }, multiplier: { $gte: 500 } }).sort({ updatedAt: -1 }).limit(15).select('amount payout multiplier user updatedAt createdAt').populate({ path: 'user', select: 'roblox.id username avatar rank xp stats rakeback anonymous' }).lean()
         ];
 
         // Execute the user get querys
@@ -129,7 +135,8 @@ const generalBetsInit = async() => {
             ...dataDatabase[3].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'duels'})), 
             ...dataDatabase[4].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'mines'})), 
             ...dataDatabase[5].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'towers'})), 
-            ...dataDatabase[18].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: bet.game}))
+            ...dataDatabase[18].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: bet.game})),
+            ...dataDatabase[21].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'roulette'}))
         ];
         generalBets.whale = [ 
             ...dataDatabase[6].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'crash'})), 
@@ -138,7 +145,8 @@ const generalBetsInit = async() => {
             ...dataDatabase[9].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'duels'})), 
             ...dataDatabase[10].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'mines'})), 
             ...dataDatabase[11].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'towers'})), 
-            ...dataDatabase[19].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: bet.game}))
+            ...dataDatabase[19].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: bet.game})),
+            ...dataDatabase[22].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'roulette'}))
         ];
         generalBets.lucky = [ 
             ...dataDatabase[12].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'crash'})), 
@@ -147,7 +155,8 @@ const generalBetsInit = async() => {
             ...dataDatabase[15].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'duels'})), 
             ...dataDatabase[16].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'mines'})), 
             ...dataDatabase[17].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'towers'})), 
-            ...dataDatabase[20].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: bet.game}))
+            ...dataDatabase[20].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: bet.game})),
+            ...dataDatabase[23].map((bet) => ({...bet, user: generalUserGetFormated(bet.user), method: 'roulette'}))
         ];
 
         // Sort bets by date

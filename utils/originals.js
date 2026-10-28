@@ -1,8 +1,8 @@
-// Instant games: plinko, dice, flip and roulette.
+// Instant games: plinko, dice and flip.
 // Every outcome is derived from sha256(`${seedServer}-${nonce}-${seedClient}`), the
 // same provably fair scheme as mines and towers, so any round can be re-computed.
 
-const ORIGINALS_GAMES = ['plinko', 'dice', 'flip', 'roulette'];
+const ORIGINALS_GAMES = ['plinko', 'dice', 'flip'];
 
 const ORIGINALS_MIN_AMOUNT = process.env.ORIGINALS_MIN_AMOUNT !== undefined ? Number(process.env.ORIGINALS_MIN_AMOUNT) : 0.01;
 const ORIGINALS_MAX_AMOUNT = process.env.ORIGINALS_MAX_AMOUNT !== undefined ? Number(process.env.ORIGINALS_MAX_AMOUNT) : 100000;
@@ -49,58 +49,6 @@ const PLINKO_TABLES = {
 const DICE_EDGE = 0.99;
 const FLIP_MULTIPLIER = 1.98;
 
-// European roulette: single zero, so every bet returns 97.3% (36/37).
-const ROULETTE_RED = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
-const ROULETTE_BETS = {
-    number: { values: [...Array(37).keys()], multiplier: 36 },
-    dozen: { values: [1, 2, 3], multiplier: 3 },
-    column: { values: [1, 2, 3], multiplier: 3 },
-    color: { values: ['red', 'black'], multiplier: 2 },
-    parity: { values: ['even', 'odd'], multiplier: 2 },
-    half: { values: ['low', 'high'], multiplier: 2 }
-};
-const ROULETTE_MAX_SPOTS = 60;
-
-const rouletteBetWins = (bet, number) => {
-    if(bet.type === 'number') { return bet.value === number; }
-    if(number === 0) { return false; }
-    if(bet.type === 'dozen') { return Math.ceil(number / 12) === bet.value; }
-    if(bet.type === 'column') { return ((number - 1) % 3) + 1 === bet.value; }
-    if(bet.type === 'color') { return ROULETTE_RED.includes(number) === (bet.value === 'red'); }
-    if(bet.type === 'parity') { return (number % 2 === 0) === (bet.value === 'even'); }
-    return (number <= 18) === (bet.value === 'low');
-}
-
-// Validates the chips placed on the table, merges chips on the same spot and
-// sets data.amount to their total so the shared amount checks apply to it.
-const rouletteNormalizeBets = (data) => {
-    if(Array.isArray(data.bets) !== true || data.bets.length === 0) {
-        throw new Error('Place at least one chip on the table.');
-    }
-
-    let merged = {};
-    for(const bet of data.bets) {
-        const valid = bet !== null && typeof bet === 'object';
-        const rule = valid === true ? ROULETTE_BETS[bet.type] : undefined;
-        const value = valid === true && typeof bet.value === 'number' ? Math.floor(bet.value) : (valid === true ? bet.value : undefined);
-        if(rule === undefined || rule.values.includes(value) !== true) {
-            throw new Error('One of your chips is on an invalid spot.');
-        } else if(isNaN(bet.amount) === true || Math.floor(bet.amount) <= 0) {
-            throw new Error('One of your chips has an invalid amount.');
-        }
-
-        const key = bet.type + ':' + value;
-        if(merged[key] === undefined) { merged[key] = { type: bet.type, value: value, amount: 0 }; }
-        merged[key].amount += Math.floor(bet.amount);
-    }
-
-    data.bets = Object.values(merged);
-    if(data.bets.length > ROULETTE_MAX_SPOTS) {
-        throw new Error('You can only bet on ' + ROULETTE_MAX_SPOTS + ' spots per spin.');
-    }
-    data.amount = data.bets.reduce((total, bet) => total + bet.amount, 0);
-}
-
 const originalsFormatAmount = (value) => parseFloat(value).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
 const originalsCheckSendBetData = (data) => {
@@ -108,11 +56,7 @@ const originalsCheckSendBetData = (data) => {
         throw new Error('Something went wrong. Please try again in a few seconds.');
     } else if(ORIGINALS_GAMES.includes(data.game) !== true) {
         throw new Error('This game does not exist.');
-    }
-
-    if(data.game === 'roulette') { rouletteNormalizeBets(data); }
-
-    if(data.amount === undefined || isNaN(data.amount) === true || Math.floor(data.amount) <= 0) {
+    } else if(data.amount === undefined || isNaN(data.amount) === true || Math.floor(data.amount) <= 0) {
         throw new Error('You’ve entered an invalid bet amount.');
     } else if(Math.floor(data.amount) < Math.floor(ORIGINALS_MIN_AMOUNT * 1000)) {
         throw new Error(`You can only bet a min amount of ${originalsFormatAmount(ORIGINALS_MIN_AMOUNT)} per game.`);
@@ -162,7 +106,6 @@ const originalsGetFloats = (hash, count) => {
 }
 
 // Returns { options, outcome, multiplier } where multiplier is a plain float (e.g. 2.5).
-// Roulette also returns the exact payout, since it sums several chips.
 const originalsGetResult = (data, hash) => {
     if(data.game === 'plinko') {
         const risk = data.risk;
@@ -193,16 +136,6 @@ const originalsGetResult = (data, hash) => {
             outcome: { roll: roll },
             multiplier: won === true ? Math.floor((DICE_EDGE * 100 / chance) * 10000) / 10000 : 0
         };
-    } else if(data.game === 'roulette') {
-        const number = Math.floor(originalsGetFloats(hash, 1)[0] * 37);
-        const payout = data.bets.reduce((total, bet) => total + (rouletteBetWins(bet, number) === true ? bet.amount * ROULETTE_BETS[bet.type].multiplier : 0), 0);
-
-        return {
-            options: { bets: data.bets },
-            outcome: { number: number },
-            multiplier: payout / data.amount,
-            payout: payout
-        };
     } else {
         const result = originalsGetFloats(hash, 1)[0] < 0.5 ? 'heads' : 'tails';
 
@@ -225,7 +158,6 @@ module.exports = {
     PLINKO_TABLES,
     DICE_EDGE,
     FLIP_MULTIPLIER,
-    ROULETTE_RED,
     originalsCheckSendBetData,
     originalsCheckSendBetUser,
     originalsCheckSendBetSeed,

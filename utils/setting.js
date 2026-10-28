@@ -56,6 +56,7 @@ const settingInitDatabase = async () => {
           "duels.enabled": true,
           "mines.enabled": true,
           "towers.enabled": true,
+          "roulette.enabled": true,
         },
         robux: {
           "deposit.enabled": false,
@@ -110,7 +111,7 @@ const settingCheck = (user, value) => {
     throw new Error("Site is in maintenance! Please try again later.");
   } else if (
     value !== undefined &&
-    value.split(".").reduce((o, i) => o[i], settings) === false &&
+    value.split(".").reduce((o, i) => (o === undefined || o === null ? undefined : o[i]), settings) === false &&
     (user === null || user.rank !== "admin")
   ) {
     throw new Error("The action you've requested is currently unavailable.");

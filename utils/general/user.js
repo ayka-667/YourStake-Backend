@@ -167,11 +167,17 @@ const generalSanitizeBets = (bets) => {
     let sanitized = [];
 
     for(let bet of bets) {
-        if(['mines', 'towers', 'plinko', 'dice', 'flip', 'roulette'].includes(bet.method) === true) {
+        // Seeded per user (mines, towers, plinko, dice, flip): recognised by their own fair.seed
+        if(bet.fair !== undefined && bet.fair !== null && bet.fair.seed !== undefined && bet.fair.seed !== null) {
             bet.fair.seed = {
                 seedClient: bet.fair.seed.seedClient,
                 hash: bet.fair.seed.hash,
                 ...(bet.fair.seed.state === 'completed' ? { seedServer: bet.fair.seed.seedServer } : {})
+            };
+        } else if(bet.method === 'roulette' && bet.game !== null && typeof bet.game === 'object' && bet.game.fair !== undefined) {
+            bet.game.fair = {
+                hash: bet.game.fair.hash,
+                ...(bet.game.state === 'completed' ? { seedServer: bet.game.fair.seedServer } : {})
             };
         } else if(['crash', 'roll'].includes(bet.method) === true) {
             bet.game.fair.seed = {

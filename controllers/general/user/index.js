@@ -17,6 +17,7 @@ const BlackjackBet = require('../../../database/models/BlackjackBet');
 const DuelsBet = require('../../../database/models/DuelsBet');
 const MinesGame = require('../../../database/models/MinesGame');
 const OriginalGame = require('../../../database/models/OriginalGame');
+const RouletteBet = require('../../../database/models/RouletteBet');
 const TowersGame = require('../../../database/models/TowersGame');
 
 // Load utils
@@ -80,11 +81,13 @@ const generalGetUserBetsSocket = async(io, socket, user, data, callback) => {
             MinesGame.find({ payout: { $exists: true, $ne: null }, user: user._id }).sort({ createdAt: -1 }).limit(data.page * 8).select('amount payout deck revealed fair user createdAt').populate({ path: 'fair.seed', select: 'seedClient seedServer hash state' }).lean(),
             TowersGame.find({ payout: { $exists: true, $ne: null }, user: user._id }).sort({ createdAt: -1 }).limit(data.page * 8).select('amount payout deck revealed fair user createdAt').populate({ path: 'fair.seed', select: 'seedClient seedServer hash state' }).lean(),
             OriginalGame.countDocuments({ user: user._id }),
-            OriginalGame.find({ user: user._id }).sort({ createdAt: -1 }).limit(data.page * 8).select('game amount payout multiplier options outcome fair user createdAt').populate({ path: 'fair.seed', select: 'seedClient seedServer hash state' }).lean()
+            OriginalGame.find({ user: user._id }).sort({ createdAt: -1 }).limit(data.page * 8).select('game amount payout multiplier options outcome fair user createdAt').populate({ path: 'fair.seed', select: 'seedClient seedServer hash state' }).lean(),
+            RouletteBet.countDocuments({ payout: { $exists: true, $ne: null }, user: user._id }),
+            RouletteBet.find({ payout: { $exists: true, $ne: null }, user: user._id }).sort({ createdAt: -1 }).limit(data.page * 8).select('amount payout multiplier bets game user createdAt').populate({ path: 'game', select: 'outcome fair state' }).lean()
         ]);
 
         // Get total bets count
-        const count = dataDatabase.slice(0, 6).reduce((a, b) => a + b, 0) + dataDatabase[12];
+        const count = dataDatabase.slice(0, 6).reduce((a, b) => a + b, 0) + dataDatabase[12] + dataDatabase[14];
 
         // Format bets
         let bets = [
@@ -115,6 +118,10 @@ const generalGetUserBetsSocket = async(io, socket, user, data, callback) => {
             ...dataDatabase[13].map(bet => ({
                 ...bet,
                 method: bet.game
+            })),
+            ...dataDatabase[15].map(bet => ({
+                ...bet,
+                method: 'roulette'
             }))
         ];
 
