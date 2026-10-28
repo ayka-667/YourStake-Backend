@@ -36,6 +36,7 @@ const settingInitDatabase = async () => {
           "tip.enabled": false,
           "affiliate.enabled": false,
           "ads.enabled": true,
+          "daily.enabled": true,
           "reward.multiplier": 1,
         },
         chat: {

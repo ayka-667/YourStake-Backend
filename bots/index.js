@@ -655,11 +655,68 @@ const blackjackLimits = (type) => {
     return { min: Math.floor(min * COIN), max: Math.floor(max * COIN) };
 };
 
-const blackjackBetAmount = (bot, type) => {
-    const limits = blackjackLimits(type);
-    const amount = type === 'whale' ? botWhaleAmount() : (bot.whale ? botSmallAmount() * 10 : botSmallAmount());
+// Same chips as the table's bet controls: bots build their bet one chip click at a time like players
+const BLACKJACK_CHIPS = {
+    standard: [100, 10, 1, 0.1].map((value) => value * COIN),
+    whale: [500, 200, 100, 50].map((value) => value * COIN)
+};
+const BLACKJACK_MAX_CLICKS = 12;
 
-    return Math.max(limits.min, Math.min(limits.max, Math.round(amount)));
+let blackjackPlacing = new Set();
+
+const blackjackBetAmount = (bot, type) => {
+    const amount = type === 'whale'
+        ? weighted([[100, 8], [200, 8], [250, 5], [500, 9], [600, 3], [1000, 7], [1500, 4], [2000, 3], [2500, 3], [5000, 1]]) * COIN
+        : (bot.whale ? botSmallAmount() * 10 : botSmallAmount());
+
+    return Math.round(amount);
+};
+
+// Splits an amount into chip clicks (largest chips first), within the table limits and a click budget
+const blackjackChipPlan = (amount, type) => {
+    const chips = BLACKJACK_CHIPS[type === 'whale' ? 'whale' : 'standard'];
+    const limits = blackjackLimits(type);
+    let left = Math.max(limits.min, Math.min(limits.max, amount));
+    const clicks = [];
+
+    for(const chip of chips) {
+        while(left >= chip && clicks.length < BLACKJACK_MAX_CLICKS) {
+            clicks.push(chip);
+            left = left - chip;
+        }
+    }
+
+    if(clicks.length === 0) { clicks.push(chips[chips.length - 1]); }
+
+    return clicks;
+};
+
+const blackjackPlaceChips = async (bot, tableId, seat, gameId, clicks) => {
+    const key = `${gameId}:${seat}`;
+    blackjackPlacing.add(key);
+
+    try {
+        for(let index = 0; index < clicks.length; index++) {
+            if(index > 0) { await sleep(index === 1 ? rand(250, 600) : rand(140, 420)); }
+
+            // Stop clicking once the round has moved on or betting is about to close
+            const table = blackjackGetTablesRaw().find((element) => element.table === tableId);
+            if(table === undefined || table.game === undefined || String(table.game._id) !== gameId) { return; }
+            if(table.game.state !== 'countdown' || blackjackTimeLeft(table) < 900) { return; }
+
+            const res = await botCall(blackjackSendBetSocket, bot, {
+                table: tableId,
+                bets: [{ seat: seat, amount: { main: clicks[index], sideLeft: 0, sideRight: 0 } }]
+            });
+
+            if(res.success !== true) {
+                if(process.env.BOTS_DEBUG) { console.log('[bots] blackjack bet', bot.username, res.error && res.error.message); }
+                return;
+            }
+        }
+    } finally {
+        blackjackPlacing.delete(key);
+    }
 };
 
 const botsBlackjackBets = async (table, botById) => {
@@ -667,19 +724,16 @@ const botsBlackjackBets = async (table, botById) => {
         const botId = blackjackPlayerUserId(player);
         if(botId === null || botById.has(botId) !== true) { continue; }
         if(player.bet !== null && player.bet !== undefined) { continue; }
+        if(blackjackPlacing.has(`${table.game._id}:${player.seat}`) === true) { continue; }
         if(blackjackWillBet(table, player.seat) !== true) { continue; }
         if(blackjackWait(`bet:${table.game._id}:${player.seat}`, 800, 3200) !== true) { continue; }
 
         const bot = botById.get(botId);
-        const amount = blackjackBetAmount(bot, table.game.type);
-        await botEnsureBalance(bot, amount);
+        const clicks = blackjackChipPlan(blackjackBetAmount(bot, table.game.type), table.game.type);
+        await botEnsureBalance(bot, clicks.reduce((sum, chip) => sum + chip, 0));
 
-        const res = await botCall(blackjackSendBetSocket, bot, {
-            table: table.table,
-            bets: [{ seat: player.seat, amount: { main: amount, sideLeft: 0, sideRight: 0 } }]
-        });
-
-        if(res.success !== true && process.env.BOTS_DEBUG) { console.log('[bots] blackjack bet', bot.username, res.error && res.error.message); }
+        // Not awaited: each bot clicks at its own pace while the tick moves on
+        blackjackPlaceChips(bot, table.table, player.seat, String(table.game._id), clicks);
     }
 };
 

@@ -8,6 +8,7 @@ const settingSchema = new mongoose.Schema({
         tip: { enabled: { type: Boolean } },
         affiliate: { enabled: { type: Boolean } },
         ads: { enabled: { type: Boolean } },
+        daily: { enabled: { type: Boolean } },
         reward: { multiplier: { type: Number } }
     },
     chat: {

@@ -49,6 +49,9 @@ const userSchema = new mongoose.Schema({
         earned: { type: Number, default: 0 },
         available: { type: Number, default: 0 }
     },
+    daily: {
+        claimedAt: { type: Date }
+    },
     affiliates: {
         code: { type: String },
         referred: { type: Number, default: 0 },
