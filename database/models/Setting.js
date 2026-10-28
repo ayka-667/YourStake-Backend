@@ -7,6 +7,7 @@ const settingSchema = new mongoose.Schema({
         leaderboard: { enabled: { type: Boolean } },
         tip: { enabled: { type: Boolean } },
         affiliate: { enabled: { type: Boolean } },
+        ads: { enabled: { type: Boolean } },
         reward: { multiplier: { type: Number } }
     },
     chat: {
