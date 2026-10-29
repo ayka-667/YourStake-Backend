@@ -50,7 +50,8 @@ const userSchema = new mongoose.Schema({
         available: { type: Number, default: 0 }
     },
     daily: {
-        claimedAt: { type: Date }
+        claimedAt: { type: Date },
+        streak: { type: Number, default: 0 }
     },
     affiliates: {
         code: { type: String },
@@ -63,7 +64,11 @@ const userSchema = new mongoose.Schema({
         referrer: { type: mongoose.Schema.ObjectId, ref: 'User' },
         referredAddress: { type: String },
         referredAt: { type: Date },
-        redeemedCode: { type: String }
+        redeemedCode: { type: String },
+        cap: {
+            day: { type: String },
+            earned: { type: Number, default: 0 }
+        }
     },
     fair: {
         clientSeed: { type: String }

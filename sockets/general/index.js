@@ -11,6 +11,7 @@ const {
 
 // Load utils
 const {
+    socketGetIp,
     socketCheckConnectionLimit,
     socketAddConnectionLimit,
     socketRemoveConnectionLimit,
@@ -46,7 +47,15 @@ module.exports = (io) => {
                     const decoded = await jwt.verify(socket.handshake.auth.token, process.env.TOKEN_SECRET);
                     socket.decoded = decoded;
 
-                    if(socket.decoded !== undefined && socket.decoded !== null && socket.decoded._id !== undefined) { socket.join(socket.decoded._id.toString()); }
+                    if(socket.decoded !== undefined && socket.decoded !== null && socket.decoded._id !== undefined) {
+                        socket.join(socket.decoded._id.toString());
+
+                        // Remember the ip (newest first, last 20) for the affiliate same network check
+                        const userIp = socketGetIp(socket);
+                        User.updateOne({ _id: socket.decoded._id, 'ips.address': { $ne: userIp } }, {
+                            $push: { ips: { $each: [{ address: userIp }], $position: 0, $slice: 20 } }
+                        }).catch(() => {});
+                    }
                 } catch(err) {
                     return next(new Error('You need to sign in to perform this action.'));
                 }

@@ -1,3 +1,9 @@
+// Play money: no deposits, so joining the site rain only asks for a small level
+const RAIN_MIN_LEVEL = process.env.RAIN_MIN_LEVEL !== undefined ? Number(process.env.RAIN_MIN_LEVEL) : 2;
+
+// Coins the site rain starts with every 30 minutes (bets keep adding to it)
+const RAIN_SITE_AMOUNT = Math.floor((process.env.RAIN_SITE_AMOUNT !== undefined ? Number(process.env.RAIN_SITE_AMOUNT) : 100) * 1000);
+
 const generalCheckSendRainCreateData = (data) => {
     if(data === undefined || data === null) {
         throw new Error('Something went wrong. Please try again in a few seconds.');
@@ -74,9 +80,9 @@ const generalCheckSendRainJoinUser = (user, rainDatabase, rainsDatabase) => {
     if(user.limits.blockRain === true) {
         throw new Error('You aren\'t allowed to join the rain at the moment.');
     } else if(user.limits.betToRain >= 10) {
-        throw new Error(`You need to wager ${ parseFloat(Math.floor(user.limits.betToWithdraw / 10) / 100).toFixed(2) } more before you can join the rain.`);
-    } else if(rainDatabase.type === 'site' && 5 > Math.floor(Math.pow(user.xp / 1000 / 100, 1 / 3))) {
-        throw new Error('You need to have a minimum level of 5 to join the rain.');
+        throw new Error(`You need to wager ${ parseFloat(Math.floor(user.limits.betToRain / 10) / 100).toFixed(2) } more before you can join the rain.`);
+    } else if(rainDatabase.type === 'site' && RAIN_MIN_LEVEL > Math.floor(Math.pow(user.xp / 1000 / 100, 1 / 3))) {
+        throw new Error(`You need to have a minimum level of ${RAIN_MIN_LEVEL} to join the rain.`);
     } else if(rainDatabase.type === 'site' && rainsDatabase.filter((element) => element.type === 'site').length >= 12) {
         throw new Error('You aren\'t allowed to join the rain more then 12 times per 24 hours.');
     }
@@ -95,6 +101,7 @@ const generalCheckSendRainJoinTransactions = (transactionsDatabase) => {
 }
 
 module.exports = {
+    RAIN_SITE_AMOUNT,
     generalCheckSendRainCreateData,
     generalCheckSendRainCreateRain,
     generalCheckSendRainCreateUser,

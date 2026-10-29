@@ -8,7 +8,7 @@ const Rain = require('../../database/models/Rain');
 const Leaderboard = require('../../database/models/Leaderboard');
 
 // Load utils
-const { AFFILIATE_RATE } = require('../../utils/general/affiliate');
+const { AFFILIATE_RATE, generalAffiliateCreditReferrer } = require('../../utils/general/affiliate');
 const {
     socketRemoveAntiSpam
 } = require('../../utils/socket');
@@ -111,13 +111,7 @@ const crashSendBetSocket = async(io, socket, user, data, callback) => {
             // Add update users referrer to promises array
             if(user.affiliates.referrer !== undefined && amountAffiliate > 0) {
                 promises.push(
-                    User.findByIdAndUpdate(user.affiliates.referrer, {
-                        $inc: { 
-                            'affiliates.earned': amountAffiliate,
-                            'affiliates.available': amountAffiliate
-                        },
-                        updatedAt: new Date().getTime()
-                    }, {})
+                    generalAffiliateCreditReferrer(user.affiliates.referrer, amountAffiliate)
                 );
             }
 
@@ -397,7 +391,7 @@ const crashBetCashout = async(io, multiplier, bet) => {
                     payout: amountPayout,
                     multiplier: multiplier,
                     updatedAt: new Date().getTime()
-                }, { new: true }).select('amount payout actions user updatedAt createdAt').lean()
+                }, { new: true }).select('amount payout multiplier actions user updatedAt createdAt').lean()
             ]);
 
             // Send updated user to frontend

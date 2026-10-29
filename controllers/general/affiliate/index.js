@@ -4,6 +4,7 @@ const BalanceTransaction = require('../../../database/models/BalanceTransaction'
 
 // Load utils
 const {
+    socketGetIp,
     socketRemoveAntiSpam
 } = require('../../../utils/socket');
 const {
@@ -19,7 +20,9 @@ const {
     generalCheckSendAffiliateClaimCodeData,
     generalCheckSendAffiliateClaimCodeUser,
     generalCheckSendAffiliateClaimCodeCode,
-    generalCheckSendAffiliateClaimEarningsUser
+    generalCheckSendAffiliateClaimCodeNetwork,
+    generalCheckSendAffiliateClaimEarningsUser,
+    affiliateIsPublicIp
 } = require('../../../utils/general/affiliate');
 
 const generalGetAffiliateDataSocket = async(io, socket, user, data, callback) => {
@@ -72,15 +75,17 @@ const generalSendAffiliateClaimCodeSocket = async(io, socket, user, data, callba
         captchaCheckData(captchaCheck);
 
         // Get user ip address
-        const userIp = socket.handshake.headers['cf-connecting-ip'] || socket.conn.remoteAddress;
+        const userIp = socketGetIp(socket);
 
         // Get affiliate code and transform to lower case
         const code = data.code.toLowerCase();
 
-        // Get user with same ip and affiliate code from database
+        // Get user with same ip, affiliate code owner and the redeeming user ips from database
+        // (a proxy or local address is shared by everyone, so it can't count as "already used")
         let dataDatabase = await Promise.all([
-            User.findOne({ 'affiliates.referredAddress': userIp }).select('affiliates').lean(),
-            User.findOne({ 'affiliates.code': code }).select('affiliates').lean()
+            affiliateIsPublicIp(userIp) === true ? User.findOne({ 'affiliates.referredAddress': userIp }).select('affiliates').lean() : null,
+            User.findOne({ 'affiliates.code': code }).select('affiliates ips').lean(),
+            User.findById(user._id).select('ips').lean()
         ]);
 
         // Validate if user has not already redeemed a affiliate code
@@ -88,6 +93,9 @@ const generalSendAffiliateClaimCodeSocket = async(io, socket, user, data, callba
 
         // Validate if affiliate code exists and is not the from the same user
         generalCheckSendAffiliateClaimCodeCode(user, dataDatabase[1]);
+
+        // Validate the code owner isn't on the same network (current ip or any ip the account used)
+        generalCheckSendAffiliateClaimCodeNetwork([userIp, ...(dataDatabase[2].ips || []).map((element) => element.address)], dataDatabase[1]);
 
         // Update redeeming, referring user and create balance transaction in database
         dataDatabase = await Promise.all([

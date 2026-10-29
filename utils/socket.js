@@ -13,6 +13,12 @@ let socketActiveConnections = {
 };
 let socketActiveRequests = [];
 
+// Real client ip: Cloudflare header first, then the X-Real-IP header nginx sets, then the raw connection
+const socketGetIp = (socket) => {
+    const headers = socket.handshake.headers;
+    return headers['cf-connecting-ip'] || headers['x-real-ip'] || socket.conn.remoteAddress;
+}
+
 const socketCheckUserData = (user, checkAuth) => {
     if(checkAuth === true && user === null) {
         throw new Error('You need to sign in to perform this action.');
@@ -74,6 +80,7 @@ const socketRemoveAntiSpam = (identifier) => {
 }
 
 module.exports = {
+    socketGetIp,
     socketCheckUserData,
     socketCheckUserRank,
     socketCheckConnectionLimit,

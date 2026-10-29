@@ -8,7 +8,7 @@ const Rain = require('../../database/models/Rain');
 const Leaderboard = require('../../database/models/Leaderboard');
 
 // Load utils
-const { AFFILIATE_RATE } = require('../../utils/general/affiliate');
+const { AFFILIATE_RATE, generalAffiliateCreditReferrer } = require('../../utils/general/affiliate');
 const {
     socketRemoveAntiSpam
 } = require('../../utils/socket');
@@ -234,13 +234,7 @@ const rollGameComplete = async(io) => {
             // Add update users referrer query to affiliates promises array
             if(bet.user.affiliates.referrer !== undefined && amountAffiliate > 0) {
                 promisesAffiliates.push(
-                    User.findByIdAndUpdate(bet.user.affiliates.referrer, {
-                        $inc: { 
-                            'affiliates.earned': amountAffiliate,
-                            'affiliates.available': amountAffiliate
-                        },
-                        updatedAt: new Date().getTime()
-                    }, {})
+                    generalAffiliateCreditReferrer(bet.user.affiliates.referrer, amountAffiliate)
                 );
             }
 
@@ -284,7 +278,7 @@ const rollGameComplete = async(io) => {
         io.of('/general').emit('rain', { rain: dataDatabase[1] });
 
         // Send updated users to frontend
-        for(const user of dataDatabase.slice(2, promisesUsers.length + promisesAffiliates.length + 2)) { io.of('/general').to(user._id.toString()).emit('user', { user: user }); }
+        for(const user of dataDatabase.slice(2, promisesUsers.length + 2)) { io.of('/general').to(user._id.toString()).emit('user', { user: user }); }
 
         // Add updated bets to bet list
         for(const bet of dataDatabase.slice(promisesUsers.length + promisesAffiliates.length + 2)) { generalAddBetsList(io, { ...bet, user: generalUserGetFormated(bet.user), method: 'roll' }); }

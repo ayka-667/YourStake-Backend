@@ -3,12 +3,6 @@ const mongoose = require('mongoose');
 // Load database models
 const User = require('../../../database/models/User');
 const Rain = require('../../../database/models/Rain');
-const RobuxTransaction = require('../../../database/models/RobuxTransaction');
-const SteamTransaction = require('../../../database/models/SteamTransaction');
-const LimitedTransaction = require('../../../database/models/LimitedTransaction');
-const CryptoTransaction = require('../../../database/models/CryptoTransaction');
-const GiftTransaction = require('../../../database/models/GiftTransaction');
-const CreditTransaction = require('../../../database/models/CreditTransaction');
 const BalanceTransaction = require('../../../database/models/BalanceTransaction');
 
 // Load utils
@@ -32,11 +26,14 @@ const {
     generalCheckSendRainJoinData,
     generalCheckSendRainJoinRain,
     generalCheckSendRainJoinUser,
-    generalCheckSendRainJoinTransactions
+    RAIN_SITE_AMOUNT
 } = require('../../../utils/general/rain');
 const {
     generalUserGetFormated
 } = require('../../../utils/general/user');
+const {
+    affiliateIsPublicIp
+} = require('../../../utils/general/affiliate');
 
 // Load controllers
 const {
@@ -226,19 +223,6 @@ const generalSendRainJoinSocket = async(io, socket, user, data, callback) => {
         // Validate joining user
         generalCheckSendRainJoinUser(user, dataDatabase[0], dataDatabase[1]);
 
-        // Validate user deposit amount in the two weeks if rain is site rain
-        if(dataDatabase[0].type === 'site') {
-            const transactionsDatabase = await Promise.all([
-                RobuxTransaction.find({ 'deposit.user': user._id, state: 'completed', createdAt: { $gte: (new Date().getTime() - (1000 * 60 * 60 * 24 * 14)) } }).select('amount deposit state createdAt').lean(),
-                LimitedTransaction.find({ 'deposit.user': user._id, state: 'completed', createdAt: { $gte: (new Date().getTime() - (1000 * 60 * 60 * 24 * 14)) } }).select('amount deposit state createdAt').lean(),
-                SteamTransaction.find({ 'deposit.user': user._id, state: 'completed', createdAt: { $gte: (new Date().getTime() - (1000 * 60 * 60 * 24 * 14)) } }).select('amount deposit state createdAt').lean(),
-                CryptoTransaction.find({ type: 'deposit', user: user._id, state: 'completed', createdAt: { $gte: (new Date().getTime() - (1000 * 60 * 60 * 24 * 14)) } }).select('amount type user state createdAt').lean(),
-                GiftTransaction.find({ type: 'deposit', user: user._id, state: 'completed', createdAt: { $gte: (new Date().getTime() - (1000 * 60 * 60 * 24 * 14)) } }).select('amount type user state createdAt').lean(),
-                CreditTransaction.find({ type: 'deposit', user: user._id, state: 'completed', createdAt: { $gte: (new Date().getTime() - (1000 * 60 * 60 * 24 * 14)) } }).select('amount type user state createdAt').lean()
-            ]);
-            generalCheckSendRainJoinTransactions([...transactionsDatabase[0], ...transactionsDatabase[1], ...transactionsDatabase[2], ...transactionsDatabase[3], ...transactionsDatabase[4], ...transactionsDatabase[5]]);
-        }
-
         // Update rain in database
         dataDatabase[0] = await Rain.findByIdAndUpdate(dataDatabase[0]._id, {
             $push: { participants: { user: user._id } }
@@ -318,9 +302,13 @@ const generalRainComplete = async(io, rain) => {
             let payout = Math.floor(Math.floor(rainDatabase.amount / 2) / rainDatabase.participants.length);
             payout = payout + Math.floor(Math.floor(rainDatabase.amount / 2) * (participant.user.xp / totalXp));
 
-            if(payoutAddresses.includes(participant.user.ips[0].address) !== true && isNaN(payout) === false && payout >= 10) {
+            // One payout per network: a proxy or local address is shared by everyone, so it doesn't count
+            const address = participant.user.ips !== undefined && participant.user.ips.length > 0 ? participant.user.ips[0].address : null;
+            const sharedAddress = affiliateIsPublicIp(address) === true ? address : null;
+
+            if((sharedAddress === null || payoutAddresses.includes(sharedAddress) !== true) && isNaN(payout) === false && payout >= 10) {
                 // Add user ip to payout addresses array
-                payoutAddresses.push(participant.user.ips[0].address);
+                if(sharedAddress !== null) { payoutAddresses.push(sharedAddress); }
 
                 // Add update user query to user promises array
                 promisesUsers.push(
@@ -371,7 +359,7 @@ const generalRainComplete = async(io, rain) => {
         if(rain.type === 'site') {
             // Create new site rain in database
             rainDatabase = await Rain.create({
-                amount: 2500,
+                amount: RAIN_SITE_AMOUNT,
                 type: 'site',
                 state: 'created'
             });
@@ -400,7 +388,7 @@ const generalRainInit = async(io) => {
 
         // Create new site rain
         let rainDatabase = await Rain.create({
-            amount: 25000,
+            amount: RAIN_SITE_AMOUNT,
             type: 'site',
             state: 'created'
         });

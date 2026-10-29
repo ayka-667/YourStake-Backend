@@ -22,8 +22,12 @@ const TowersGame = require('../../../database/models/TowersGame');
 
 // Load utils
 const {
+    socketGetIp,
     socketRemoveAntiSpam
 } = require('../../../utils/socket');
+const {
+    affiliateIsPublicIp
+} = require('../../../utils/general/affiliate');
 const {
     generalCheckGetUserInfoData,
     generalCheckGetUserInfoUser,
@@ -345,12 +349,25 @@ const generalSendUserTipSocket = async(io, socket, user, data, callback) => {
         // Validate sent data
         generalCheckSendUserTipData(data);
 
+        // Get coins tipped in the last 24 hours, the receiver and both users ips from database
+        const tipsDatabase = await Promise.all([
+            TipTransaction.find({ 'sender.user': user._id, state: 'completed', createdAt: { $gte: new Date(new Date().getTime() - 1000 * 60 * 60 * 24) } }).select('amount').lean(),
+            User.findById(data.receiverId).select('balance ips ban'),
+            User.findById(user._id).select('ips').lean()
+        ]);
+
         // Validate user balance and if allowed to tip
-        generalCheckSendUserTipUser(data, user);
+        generalCheckSendUserTipUser(data, user, tipsDatabase[0].reduce((sum, element) => sum + element.amount, 0));
 
         // Validate receiver
-        const receiverDatabase = await User.findById(data.receiverId).select('balance ban');
+        const receiverDatabase = tipsDatabase[1];
         generalCheckSendUserTipReceiver(user, receiverDatabase);
+
+        // Validate receiver isn't on the same network as the sender (alt account)
+        const senderIps = [socketGetIp(socket), ...(tipsDatabase[2].ips || []).map((element) => element.address)].filter(affiliateIsPublicIp);
+        if((receiverDatabase.ips || []).some((element) => senderIps.includes(element.address)) === true) {
+            throw new Error('You are not allowed to tip an account on the same network as yours.');
+        }
 
         // Get tip amount
         const amount = Math.floor(data.amount);

@@ -75,7 +75,7 @@ module.exports = () => {
             authCheckPostCredentialsUser(userDatabase, isMatch);
 
             // Get user ip address
-            const userIp = req.headers['cf-connecting-ip'] || req.socket.remoteAddress;
+            const userIp = req.headers['cf-connecting-ip'] || req.headers['x-real-ip'] || req.socket.remoteAddress;
 
             // Get user ips array
             userDatabase.ips = userDatabase.ips || [];
@@ -143,7 +143,7 @@ module.exports = () => {
             ];
 
             // Get user ip address
-            const userIp = req.headers['cf-connecting-ip'] || req.socket.remoteAddress;
+            const userIp = req.headers['cf-connecting-ip'] || req.headers['x-real-ip'] || req.socket.remoteAddress;
 
             // Get random username
 

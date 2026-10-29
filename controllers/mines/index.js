@@ -8,7 +8,7 @@ const Leaderboard = require('../../database/models/Leaderboard');
 const Rain = require('../../database/models/Rain');
 
 // Load utils
-const { AFFILIATE_RATE } = require('../../utils/general/affiliate');
+const { AFFILIATE_RATE, generalAffiliateCreditReferrer } = require('../../utils/general/affiliate');
 const {
     socketRemoveAntiSpam
 } = require('../../utils/socket');
@@ -135,13 +135,7 @@ const minesSendBetSocket = async(io, socket, user, data, callback) => {
         // Add update users referrer query to promises array if available and affiliate amount is bigger then zero
         if(user.affiliates.referrer !== undefined && amountAffiliate > 0) {
             promises.push(
-                User.findByIdAndUpdate(user.affiliates.referrer, {
-                    $inc: { 
-                        'affiliates.earned': amountAffiliate,
-                        'affiliates.available': amountAffiliate
-                    },
-                    updatedAt: new Date().getTime()
-                }, {})
+                generalAffiliateCreditReferrer(user.affiliates.referrer, amountAffiliate)
             );
         }
 

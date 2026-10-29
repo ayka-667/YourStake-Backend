@@ -42,6 +42,7 @@ const generalSendDailyClaimSocket = async(io, socket, user, data, callback) => {
                 balance: status.reward
             },
             'daily.claimedAt': now,
+            'daily.streak': status.nextStreak,
             updatedAt: now.getTime()
         }, { new: true }).select('balance xp stats rakeback mute ban verifiedAt updatedAt').lean();
 
@@ -54,7 +55,7 @@ const generalSendDailyClaimSocket = async(io, socket, user, data, callback) => {
             state: 'completed'
         });
 
-        callback({ success: true, user: userUpdated, reward: status.reward, status: dailyGetStatus({ ...userDatabase, daily: { claimedAt: now } }) });
+        callback({ success: true, user: userUpdated, reward: status.reward, status: dailyGetStatus({ ...userDatabase, daily: { claimedAt: now, streak: status.nextStreak } }) });
 
         socketRemoveAntiSpam(user._id);
     } catch(err) {

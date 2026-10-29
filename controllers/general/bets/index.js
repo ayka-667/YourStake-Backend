@@ -15,8 +15,39 @@ const {
     generalUserGetFormated
 } = require('../../../utils/general/user');
 
+// Load controllers
+const {
+    generalChatAddMessage
+} = require('../chat');
+
 // Crash variables
 let generalBets = { all: [], whale: [], lucky: [], my: [] };
+
+// Big wins announced in the chat: a big payout of at least x2, or a high multiplier with a decent payout (amounts x1000, multiplier x100)
+const BIG_WIN_PAYOUT = Math.floor((process.env.BIG_WIN_PAYOUT !== undefined ? Number(process.env.BIG_WIN_PAYOUT) : 1000) * 1000);
+const BIG_WIN_MULTIPLIER = Math.floor((process.env.BIG_WIN_MULTIPLIER !== undefined ? Number(process.env.BIG_WIN_MULTIPLIER) : 50) * 100);
+const BIG_WIN_MULTIPLIER_PAYOUT = 100 * 1000;
+const BIG_WIN_INTERVAL = 1000 * 30;
+let generalBigWinLast = 0;
+
+const generalCheckBigWin = (io, bet) => {
+    // Some games don't send the multiplier with the bet: payout / amount gives it back
+    const multiplier = typeof bet.multiplier === 'number' && isNaN(bet.multiplier) !== true ? bet.multiplier : (bet.amount > 0 ? Math.floor(bet.payout / bet.amount * 100) : 0);
+    const big = (bet.payout >= BIG_WIN_PAYOUT && multiplier >= 200) || (multiplier >= BIG_WIN_MULTIPLIER && bet.payout >= BIG_WIN_MULTIPLIER_PAYOUT);
+    if(big !== true || bet.payout <= bet.amount || new Date().getTime() - generalBigWinLast < BIG_WIN_INTERVAL) { return; }
+    generalBigWinLast = new Date().getTime();
+
+    generalChatAddMessage(io, {
+        type: 'bigWin',
+        bet: {
+            amount: bet.amount,
+            payout: bet.payout,
+            multiplier: multiplier,
+            method: bet.method,
+            user: bet.user !== null && bet.user !== undefined ? { _id: bet.user._id, username: bet.user.username, avatar: bet.user.avatar, rank: bet.user.rank, level: bet.user.level } : null
+        }
+    });
+}
 
 const generalGetBetsDataSocket = async(io, socket, user, data, callback) => {
     try {
@@ -89,6 +120,9 @@ const generalAddBetsList = (io, bet) => {
 
         // Send bet to frontend
         io.of('/general').emit('bet', { bet: bet });
+
+        // Announce big wins in the chat
+        generalCheckBigWin(io, bet);
     } catch(err) {
         console.error(err);
     }

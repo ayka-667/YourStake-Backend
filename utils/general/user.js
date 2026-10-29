@@ -83,11 +83,17 @@ const generalCheckSendUserTipData = (data) => {
     }
 }
 
-const generalCheckSendUserTipUser = (data, user) => {
+// Play money: tips need some wagering and are capped per day, so alts can't funnel free coins to a main
+const TIP_MIN_WAGER = Math.floor((process.env.TIP_MIN_WAGER !== undefined ? Number(process.env.TIP_MIN_WAGER) : 100) * 1000);
+const TIP_DAILY_CAP = Math.floor((process.env.TIP_DAILY_CAP !== undefined ? Number(process.env.TIP_DAILY_CAP) : 1000) * 1000);
+
+const generalCheckSendUserTipUser = (data, user, sentToday) => {
     if(user.balance < Math.floor(data.amount)) {
         throw new Error('You have not enough balance for this action.');
-    } else if(user.stats.deposit < (50 * 1000)) {
-        throw new Error('You need to have a total of 50 robux deposited.');
+    } else if(user.stats.bet < TIP_MIN_WAGER) {
+        throw new Error(`You need to wager a total of ${TIP_MIN_WAGER / 1000} coins before you can tip.`);
+    } else if(sentToday + Math.floor(data.amount) > TIP_DAILY_CAP) {
+        throw new Error(`You can tip up to ${TIP_DAILY_CAP / 1000} coins per 24 hours. You can still tip ${(Math.floor(Math.max(0, TIP_DAILY_CAP - sentToday) / 10) / 100).toFixed(2)} coins.`);
     } else if(user.limits.blockTip === true && user.limits.limitTip === 0) {
         throw new Error('You are not allowed to tip users.');
     } else if(user.limits.blockTip === true && user.limits.limitTip < Math.floor(data.amount)) {

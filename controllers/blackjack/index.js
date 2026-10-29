@@ -7,7 +7,7 @@ const BlackjackBet = require('../../database/models/BlackjackBet');
 const Leaderboard = require('../../database/models/Leaderboard');
 
 // Load utils
-const { AFFILIATE_RATE } = require('../../utils/general/affiliate');
+const { AFFILIATE_RATE, generalAffiliateCreditReferrer } = require('../../utils/general/affiliate');
 const {
     socketRemoveAntiSpam
 } = require('../../utils/socket');
@@ -941,12 +941,7 @@ const blackjackGameComplete = async(io, blackjackTable) => {
             // Credit the referring user (not part of the users promise array: those results are sent back to the players)
             if(amountAffiliate > 0) {
                 promiseAffiliates.push(
-                    User.findByIdAndUpdate(referrer, {
-                        $inc: {
-                            'affiliates.earned': amountAffiliate,
-                            'affiliates.available': amountAffiliate
-                        }
-                    })
+                    generalAffiliateCreditReferrer(referrer, amountAffiliate)
                 );
             }
 
