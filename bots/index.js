@@ -59,6 +59,60 @@ const NAMES = [
 ];
 const WHALE_NAMES = ['w4lrus', 'ColdHands', '8figkev', 'vault_lord', 'sharkbait', 'moneybags', 'deepp0ckets', 'k1ngmidas'];
 
+// Past the hand picked lists, names are built from parts (seeded, so a bot keeps its name across restarts)
+const NAME_PARTS_A = [
+    'dark', 'lucky', 'cold', 'big', 'lil', 'crazy', 'sly', 'fast', 'salty', 'smooth', 'golden', 'silent', 'wild', 'toxic', 'chill',
+    'based', 'rapid', 'frozen', 'neon', 'lazy', 'sneaky', 'royal', 'spicy', 'mad', 'tiny', 'hyper', 'cosmic', 'iron', 'retro', 'sleepy',
+    'broke', 'rich', 'fat', 'quick', 'shady', 'hazy', 'grumpy', 'savage', 'mellow', 'bold'
+];
+const NAME_PARTS_B = [
+    'fox', 'wolf', 'tiger', 'shark', 'ace', 'king', 'joker', 'ghost', 'viper', 'panda', 'raven', 'bear', 'hawk', 'cobra', 'duke',
+    'bandit', 'rookie', 'legend', 'goblin', 'pilot', 'sniper', 'ninja', 'monk', 'pirate', 'wizard', 'dealer', 'hustler', 'rider', 'chef', 'mango',
+    'potato', 'noodle', 'cactus', 'falcon', 'otter', 'moose', 'llama', 'baron', 'pickle', 'turtle'
+];
+const NAME_FIRST = [
+    'jake', 'liam', 'noah', 'mason', 'leo', 'ethan', 'lucas', 'owen', 'ryan', 'aiden', 'caleb', 'evan', 'finn', 'gavin', 'hugo',
+    'ivan', 'jonah', 'kian', 'logan', 'milo', 'nico', 'oscar', 'reece', 'sean', 'troy', 'victor', 'wes', 'xavi', 'yusuf', 'zane',
+    'mia', 'zoe', 'lena', 'nina', 'ava', 'ella', 'jade', 'kira', 'luna', 'ruby'
+];
+
+// Small seeded random generator (mulberry32)
+const seeded = (seed) => () => {
+    seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
+
+// count unique names: the hand picked list first, then generated ones, never one in `taken` (lower case)
+const botsBuildNames = (base, count, taken, seed) => {
+    const random = seeded(seed);
+    const at = (list) => list[Math.floor(random() * list.length)];
+    const digits = () => String(Math.floor(random() * (random() < 0.5 ? 100 : 10000)));
+    const styles = [
+        () => at(NAME_PARTS_A) + at(NAME_PARTS_B),
+        () => at(NAME_PARTS_A) + '_' + at(NAME_PARTS_B),
+        () => at(NAME_PARTS_B) + digits(),
+        () => at(NAME_FIRST) + digits(),
+        () => at(NAME_FIRST) + '_' + at(NAME_PARTS_B),
+        () => at(NAME_FIRST) + at(['x', 'z', '_', 'yy', 'o', 'ie', '']) + at(['', '', digits()]),
+        () => { const name = at(NAME_PARTS_A) + at(NAME_PARTS_B); return name.charAt(0).toUpperCase() + name.slice(1); },
+        () => at(['xX', 'its', 'the', 'not', 'real', 'im']) + at(NAME_PARTS_B) + at(['', 'Xx', '_', digits()])
+    ];
+    const names = [];
+
+    for(const name of base) {
+        if(names.length >= count) { break; }
+        if(taken.has(name.toLowerCase()) !== true) { names.push(name); taken.add(name.toLowerCase()); }
+    }
+    while(names.length < count) {
+        const name = at(styles)().slice(0, 16);
+        if(name.length >= 3 && taken.has(name.toLowerCase()) !== true) { names.push(name); taken.add(name.toLowerCase()); }
+    }
+
+    return names;
+};
+
 const CHAT_MESSAGES = [
     'gm', 'gn chat', 'yo', 'sup chat', 'whats good', 'hey guys', 'back again lol', 'im back',
     'lfg', 'gg', 'ggs', 'nice hit', 'clean', 'sheesh', 'W', 'L', 'huge W', 'massive L', 'ez', 'insane',
@@ -75,7 +129,23 @@ const CHAT_MESSAGES = [
     'why did i sell', 'unlucky', 'sadge', 'pog', 'sick', 'imagine holding that', 'thats so tuff', 'ok im done for today',
     'jk one more', 'wsg', 'good luck everyone', 'gl all', 'this chat is wild', 'how is everyone doing', 'tired of losing',
     'who wants to split a duel', 'mines on 24 bombs is crazy', 'towers easy grind', 'cashed out 3k on towers 😤',
-    'whats the best game here', 'crash 100%', 'roll for sure', 'mines easily', 'i like towers ngl'
+    'whats the best game here', 'crash 100%', 'roll for sure', 'mines easily', 'i like towers ngl',
+    // templates: {game} a game, {n} an amount, {x} a multiplier, {h} a number of hours, {d} a small number
+    '{game} is cooking rn', '{game} been cold for me', 'just hit {x}x on {game}', 'down {n} on {game} smh', 'up {n} today',
+    'who else playing {game}', 'switching to {game}', '{game} > everything', 'lost {n} in 5 min lol', 'turned 20 into {n} 😤',
+    '{x}x on {game} lets gooo', 'been on {game} for {h}h', 'only {game} today', '{game} is so mid today', 'need {x}x to recover',
+    'anyone up on {game}?', 'one {game} round then food', 'bro {game} just ate my {n}', 'im on a heater on {game}', 'last {n} going on {game}',
+    'how much u guys up today', 'whos winning today', 'chat is dead', 'chat woke up', 'quiet tonight', 'where is everyone',
+    'brb', 'back', 'eating rn', 'cant sleep so here i am', 'school tmr and im here lol', 'just woke up', 'on my break',
+    'any tips for mines', 'what bomb count u guys use', 'cash out at {x}x or hold?', 'hold always', 'never hold lol', 'depends on vibes',
+    'claim ur daily ppl', 'daily claimed', 'streak day {d} lets go', 'dont forget the daily', 'rain soon?', 'ty for the rain whoever tipped',
+    'that was close', 'so close', 'missed it by 0.01 💀', 'i knew it', 'called it', 'nobody listens to me', 'trust the process',
+    'this game humbles you', 'humbled again', 'back to 0', 'from 0 to hero', 'balance looking healthy', 'balance looking sad',
+    'i need a break', 'ok last one fr', 'that was the last one... ok maybe not', 'gl on ur next one', 'u got this', 'stay safe chat',
+    'blackjack dealer is cracked', 'split 8s always', 'never take insurance', 'hit on 16? yes or no', 'stand on 16 always', 'double on 11 ez',
+    'roulette red streak is insane', 'black 5 times in a row', 'green when', 'all on red', 'im a towers main', 'plinko is relaxing ngl',
+    'dice 50/50 my favorite', 'flip coin gang', 'duels anyone {n}?', 'who wants a duel', 'i lost a duel to a 2 💀', 'rolled a 12 in duels lets go',
+    'nice', 'wow', 'yikes', 'oof', 'bruh', 'fr', 'facts', 'true', 'cap', 'no cap', 'same', 'mood', 'real', 'ong', 'ikr', 'ye', 'nah fr'
 ];
 
 // Short back-and-forth exchanges between different bots
@@ -88,16 +158,37 @@ const CHAT_THREADS = [
     ['should i go all in', 'no', 'yes', 'do it coward'],
     ['tip me 10 pls', 'no', 'beggars lol'],
     ['who just hit that big one', 'not me sadly', 'i wish'],
-    ['is it just me or crash keeps busting early', 'same here', 'been like that all night']
+    ['is it just me or crash keeps busting early', 'same here', 'been like that all night'],
+    ['best game for grinding?', 'towers easy', 'nah dice', 'mines 1 bomb lol'],
+    ['did u claim ur daily', 'yep', 'forgot lol thx'],
+    ['hold or cash?', 'cash', 'hold', 'u guys are useless lmao'],
+    ['blackjack table 2 anyone', 'omw', 'dealer is hot rn tho', 'lets see'],
+    ['im so tilted', 'take a break bro', 'one more', 'famous last words'],
+    ['what level are u guys', '{d}', 'like 12', 'grinding to 20'],
+    ['red or black', 'black', 'red', 'green for the gigachads'],
+    ['up {n} rn', 'cash out', 'withdraw that', 'nah keep going', 'dont listen to him'],
+    ['how do i get coins', 'daily reward', 'rain + daily', 'affiliate codes too'],
+    ['anyone else lag', 'no', 'fine for me', 'ur wifi lol']
 ];
 
-const BIG_WIN_REACTIONS = ['gg {name}', 'W {name}', 'huge {name}', '{name} cooking', 'nice hit {name}', 'tip me {name} 🙏', 'jeez {name}', 'gg', 'thats a W'];
+const BIG_WIN_REACTIONS = [
+    'gg {name}', 'W {name}', 'huge {name}', '{name} cooking', 'nice hit {name}', 'tip me {name} 🙏', 'jeez {name}', 'gg', 'thats a W',
+    'ggs {name}', 'lets go {name}', '{name} is on fire', 'insane {name}', 'sheesh {name}', 'gj {name}', 'wp {name}', 'nice one',
+    'congrats {name}', 'how {name}', 'teach me {name}', '{name} the goat', 'ok {name} 👀', 'damn', 'W hit', 'clean hit {name}'
+];
 const HIGH_CRASH_REACTIONS = ['{x}x 💀', 'who held to {x}x??', 'i cashed at 2x and it went {x}x bruh', 'finally a moon', '{x}x lets gooo', 'damn {x}x'];
 const LOW_CRASH_REACTIONS = ['instant bust lol', 'rip', 'again??', 'bro', '1.00x 💀', 'cmon'];
 
 // Replies to real players
-const GREETING_REPLIES = ['yo {name}', 'sup {name}', 'wsg {name}', 'welcome {name}', 'hey', 'yo', 'gl {name}'];
-const QUESTION_REPLIES = ['idk tbh', 'probably', 'nah', 'yeah', 'depends lol', 'ask the mods', 'try crash', 'mines imo'];
+const GREETING_REPLIES = [
+    'yo {name}', 'sup {name}', 'wsg {name}', 'welcome {name}', 'hey', 'yo', 'gl {name}', 'hey {name}', 'hii', 'yoo {name}',
+    'wb {name}', 'whats up {name}', 'hello', 'gm {name}', 'o/ {name}', 'hey hey', 'sup', 'welcome back', 'hi {name} gl today', 'yo whats good'
+];
+const QUESTION_REPLIES = [
+    'idk tbh', 'probably', 'nah', 'yeah', 'depends lol', 'ask the mods', 'try crash', 'mines imo', 'no idea', 'i think so',
+    'not sure', 'yes', 'nope', 'maybe', 'good question', 'idk ask someone else lol', 'yeah why not', 'nah i wouldnt', 'try it and see',
+    'depends on ur balance', 'towers imo', 'dice if u want chill', 'i dont think so', 'pretty sure yeah', 'hmm idk'
+];
 
 let bots = [];
 let online = new Set();
@@ -106,6 +197,38 @@ let busy = new Set();
 const rand = (min, max) => Math.random() * (max - min) + min;
 const randInt = (min, max) => Math.floor(rand(min, max + 1));
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
+
+// Chat lines said recently, per list: picks skip them so the chat doesn't loop on the same lines
+const chatRecent = new Map();
+const pickFresh = (list) => {
+    if(chatRecent.has(list) !== true) { chatRecent.set(list, []); }
+    const recent = chatRecent.get(list);
+    const options = list.filter((line) => recent.includes(line) !== true);
+    const line = pick(options.length > 0 ? options : list);
+    recent.push(line);
+    if(recent.length > Math.floor(list.length * 0.75)) { recent.shift(); }
+    return line;
+};
+
+const CHAT_GAMES = ['crash', 'mines', 'towers', 'roll', 'roulette', 'blackjack', 'dice', 'plinko', 'duels', 'flip'];
+const CHAT_SUFFIXES = ['lol', 'fr', 'ngl', 'tbh', 'lmao', '💀', '😭', '😂', '🙏', '😤', '🔥', '!!', '..'];
+
+// Fills {name} {x} {game} {n} {h} {d} and sometimes changes the casing or adds a suffix
+const chatFill = (text, vars = {}) => {
+    let line = text
+        .replace('{name}', vars.name || '')
+        .replace('{x}', vars.x || weighted([[rand(2, 5), 5], [rand(5, 20), 3], [rand(20, 150), 1]]).toFixed(2).replace(/\.00$/, ''))
+        .replace('{game}', pick(CHAT_GAMES))
+        .replace('{n}', String(weighted([[randInt(1, 9) * 10, 3], [randInt(1, 9) * 100, 4], [randInt(1, 20) * 500, 2], [randInt(2, 30) * 1000, 1]])))
+        .replace('{h}', String(randInt(1, 6)))
+        .replace('{d}', String(randInt(2, 30)))
+        .trim();
+
+    if(chance(0.12)) { line = line + ' ' + pick(CHAT_SUFFIXES); }
+    if(chance(0.08)) { line = line.toUpperCase(); }
+    else if(chance(0.15)) { line = line.charAt(0).toUpperCase() + line.slice(1); }
+    return line;
+};
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const chance = (p) => Math.random() < p;
 
@@ -181,9 +304,15 @@ const botsEnsureAccounts = async (count, whaleCount) => {
     const recent = Date.now() - 3 * 24 * 60 * 60 * 1000;
     const result = [];
 
+    // Unique names for every bot, never one a real player already uses
+    const real = await User.distinct('username', { 'local.email': { $not: { $regex: BOT_EMAIL_DOMAIN.replace('.', '\\.') + '$' } } });
+    const taken = new Set(real.filter((name) => typeof name === 'string').map((name) => name.toLowerCase()));
+    const whaleNames = botsBuildNames(WHALE_NAMES, whaleCount, taken, 7);
+    const names = botsBuildNames(NAMES, Math.max(0, count - whaleCount), taken, 42);
+
     for(let index = 0; index < count; index++) {
         const whale = index < whaleCount;
-        const username = whale ? WHALE_NAMES[index % WHALE_NAMES.length] : NAMES[(index - whaleCount) % NAMES.length];
+        const username = whale ? whaleNames[index] : names[index - whaleCount];
         const email = `bot${index}${BOT_EMAIL_DOMAIN}`;
         let user = byEmail.get(email);
 
@@ -263,14 +392,14 @@ const botsChatLoop = async () => {
 
         if(chance(0.05)) {
             // Small conversation between a few bots
-            const thread = pick(CHAT_THREADS);
+            const thread = pickFresh(CHAT_THREADS);
             const speakers = [...list].sort(() => Math.random() - 0.5).slice(0, 3);
             for(let index = 0; index < thread.length; index++) {
-                await botSay(speakers[index % speakers.length], thread[index]);
+                await botSay(speakers[index % speakers.length], chatFill(thread[index]));
                 await sleep(rand(4000, 12000));
             }
         } else {
-            botSay(pick(list), pick(CHAT_MESSAGES));
+            botSay(pick(list), chatFill(pickFresh(CHAT_MESSAGES)));
         }
     }
 };
@@ -288,7 +417,7 @@ const botsOnChatMessage = (message) => {
         if(/\b(hi|hello|hey|yo|sup|wsg|gm|wassup|whats up)\b/.test(text)) {
             botsReact(GREETING_REPLIES, { name: name }, 0.6, true);
         } else if(mentioned !== undefined) {
-            setTimeout(() => botSay(mentioned, pick(QUESTION_REPLIES)), rand(2000, 6000));
+            setTimeout(() => botSay(mentioned, chatFill(pickFresh(QUESTION_REPLIES))), rand(2000, 6000));
         } else if(text.includes('?')) {
             botsReact(QUESTION_REPLIES, { name: name }, 0.25, true);
         } else if(/\b(gg|lets go|lfg|won|hit)\b/.test(text)) {
@@ -306,7 +435,7 @@ const botsReact = (templates, vars, probability, toRealPlayer = false) => {
     if(!toRealPlayer) { return; }
     const list = botsOnline().filter((bot) => bot.username !== vars.name);
     if(list.length === 0) { return; }
-    const text = pick(templates).replace('{name}', vars.name || '').replace('{x}', vars.x || '');
+    const text = chatFill(pickFresh(templates), vars);
     setTimeout(() => botSay(pick(list), text), rand(800, 3500));
 };
 
